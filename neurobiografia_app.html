@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Neurobiografía SANA</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --azul: #1e4a6e; --azul-oscuro: #132f47; --azul-claro: #2a5f8a;
+    --verde: #5a8a3c; --verde-claro: #7ab050; --dorado: #c8952a;
+    --blanco: #ffffff; --blanco70: rgba(255,255,255,0.7); --blanco20: rgba(255,255,255,0.12);
+  }
+  body { font-family: 'Georgia', serif; background: var(--azul-oscuro); color: #f0f4f8; min-height: 100vh; max-width: 420px; margin: 0 auto; overflow-x: hidden; }
+  .pantalla { display: none; min-height: 100vh; flex-direction: column; }
+  .pantalla.activa { display: flex; }
+
+  /* HEADER */
+  .header-app { background: var(--azul); padding: 20px 24px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--blanco20); flex-shrink: 0; }
+  .btn-back { background: none; border: none; color: var(--blanco70); font-size: 1.3rem; cursor: pointer; padding: 4px; }
+  .header-titulo { font-size: 1rem; color: var(--blanco); font-family: sans-serif; font-weight: 600; }
+  .header-sub { font-size: 0.72rem; color: var(--verde-claro); font-family: sans-serif; letter-spacing: 1px; }
+
+  /* BOTONES */
+  .btn-principal { background: var(--verde); color: var(--blanco); border: none; border-radius: 50px; padding: 16px 40px; font-size: 1rem; font-family: sans-serif; cursor: pointer; width: 100%; margin-bottom: 10px; }
+  .btn-secundario { background: transparent; color: var(--blanco70); border: 1.5px solid rgba(255,255,255,0.25); border-radius: 50px; padding: 13px 40px; font-size: 0.9rem; font-family: sans-serif; cursor: pointer; width: 100%; margin-bottom: 10px; }
+
+  /* NAV INFERIOR */
+  .nav-inferior { background: var(--azul); border-top: 1px solid var(--blanco20); display: flex; padding: 10px 0 20px; flex-shrink: 0; }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; padding: 8px; }
+  .nav-btn-icon { font-size: 1.3rem; }
+  .nav-btn-label { font-size: 0.62rem; color: var(--blanco70); font-family: sans-serif; }
+  .nav-btn.activo .nav-btn-label { color: var(--verde-claro); }
+
+  /* ── BIENVENIDA ── */
+  #p-bienvenida { background: linear-gradient(160deg, var(--azul-oscuro) 0%, var(--azul) 100%); flex-direction: column; overflow-y: auto; }
+  
+  .bienvenida-hero { padding: 36px 28px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .logo-circulo { width: 100px; height: 100px; border-radius: 50%; background: var(--azul); border: 2.5px solid var(--verde); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .logo-circulo svg { width: 64px; height: 64px; }
+  .bienvenida-hero h1 { font-size: 1.9rem; color: var(--blanco); letter-spacing: 6px; margin-bottom: 4px; }
+  .bienvenida-hero .subtitulo { font-size: 0.72rem; color: var(--verde-claro); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; font-family: sans-serif; }
+  .bienvenida-hero .frase { font-size: 0.95rem; color: var(--blanco70); line-height: 1.7; font-style: italic; margin-bottom: 24px; }
+
+  /* PRÁCTICA DIARIA */
+  .practica-diaria { padding: 0 20px 20px; }
+  .seccion-titulo { font-size: 0.72rem; color: var(--verde-claro); font-family: sans-serif; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .seccion-titulo::after { content: ''; flex: 1; height: 1px; background: var(--blanco20); }
+
+  /* PLAYER PRINCIPAL */
+  .player-principal {
+    background: linear-gradient(135deg, var(--azul) 0%, var(--azul-claro) 100%);
+    border-radius: 20px; padding: 24px; margin-bottom: 14px;
+    border: 1px solid var(--blanco20); position: relative; overflow: hidden;
+  }
+  .player-principal::before {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .player-cancion-tag { font-size: 0.65rem; color: var(--verde-claro); font-family: sans-serif; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .player-cancion-nombre { font-size: 1.1rem; color: var(--blanco); margin-bottom: 4px; line-height: 1.4; }
+  .player-cancion-eje { font-size: 0.78rem; color: var(--blanco70); font-family: sans-serif; margin-bottom: 20px; }
+
+  .player-barra-wrap { margin-bottom: 10px; }
+  .player-barra { width: 100%; height: 4px; background: var(--blanco20); border-radius: 4px; cursor: pointer; appearance: none; outline: none; }
+  .player-barra::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--verde-claro); cursor: pointer; }
+  .player-tiempos { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--blanco70); font-family: sans-serif; }
+
+  .player-controles { display: flex; align-items: center; justify-content: center; gap: 24px; }
+  .ctrl-btn { background: none; border: none; cursor: pointer; color: var(--blanco70); font-size: 1.4rem; padding: 8px; transition: color 0.2s; }
+  .ctrl-btn:active { color: var(--blanco); }
+  .ctrl-play {
+    width: 54px; height: 54px; border-radius: 50%;
+    background: var(--verde); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; color: var(--blanco); transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .ctrl-play:active { background: var(--verde-claro); }
+
+  /* LISTA CANCIONES */
+  .canciones-lista { display: flex; flex-direction: column; gap: 10px; }
+  .cancion-item {
+    background: var(--blanco20); border-radius: 14px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px; cursor: pointer;
+    border: 1.5px solid transparent; transition: all 0.2s;
+  }
+  .cancion-item.activa { border-color: var(--verde); background: rgba(90,138,60,0.15); }
+  .cancion-item:active { transform: scale(0.98); }
+  .cancion-num { font-size: 0.75rem; color: var(--blanco70); font-family: sans-serif; width: 16px; text-align: center; flex-shrink: 0; }
+  .cancion-item.activa .cancion-num { color: var(--verde-claro); }
+  .cancion-info { flex: 1; }
+  .cancion-nombre { font-size: 0.9rem; color: var(--blanco); margin-bottom: 2px; }
+  .cancion-eje { font-size: 0.72rem; color: var(--blanco70); font-family: sans-serif; }
+  .cancion-duracion { font-size: 0.72rem; color: var(--blanco70); font-family: sans-serif; flex-shrink: 0; }
+  .cancion-ondas { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .onda { width: 3px; border-radius: 3px; background: var(--verde-claro); animation: ondas 0.8s ease-in-out infinite alternate; }
+  .onda:nth-child(1) { height: 8px; animation-delay: 0s; }
+  .onda:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+  .onda:nth-child(3) { height: 10px; animation-delay: 0.3s; }
+  .onda:nth-child(4) { height: 16px; animation-delay: 0.1s; }
+  @keyframes ondas { from { transform: scaleY(0.5); } to { transform: scaleY(1); } }
+
+  /* ACCESOS RÁPIDOS */
+  .accesos { display: flex; gap: 10px; padding: 0 20px 24px; }
+  .acceso-btn { flex: 1; background: var(--blanco20); border-radius: 14px; padding: 16px 10px; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: background 0.2s; }
+  .acceso-btn:active { background: rgba(90,138,60,0.2); }
+  .acceso-icon { font-size: 1.4rem; }
+  .acceso-label { font-size: 0.68rem; color: var(--blanco70); font-family: sans-serif; text-align: center; line-height: 1.3; }
+
+  /* ── TRÍADA ── */
+  #p-triada { background: var(--azul-oscuro); }
+  .triada-body { flex: 1; padding: 24px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .triada-intro { font-size: 0.88rem; color: var(--blanco70); font-style: italic; line-height: 1.7; text-align: center; }
+  .triada-flecha { width: 2px; height: 20px; background: linear-gradient(to bottom, var(--verde-claro), var(--dorado)); margin: 0 auto; }
+  .triada-nodo { width: 100%; border-radius: 20px; padding: 18px; cursor: pointer; transition: all 0.25s; position: relative; border: 2px solid transparent; }
+  .triada-nodo.liberacion { background: rgba(26,92,58,0.2); border-color: var(--verde); }
+  .triada-nodo.transformacion { background: rgba(30,74,110,0.3); border-color: var(--azul-claro); }
+  .triada-nodo.bienestar { background: rgba(200,149,42,0.15); border-color: var(--dorado); }
+  .triada-nodo.activo { transform: scale(1.02); }
+  .nodo-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .nodo-icono { font-size: 1.6rem; }
+  .nodo-nombre { font-size: 1rem; color: var(--blanco); font-family: sans-serif; font-weight: 700; }
+  .nodo-tag { font-size: 0.65rem; font-family: sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
+  .liberacion .nodo-tag { color: var(--verde-claro); }
+  .transformacion .nodo-tag { color: #7ab8e0; }
+  .bienestar .nodo-tag { color: #e8b84b; }
+  .nodo-desc { font-size: 0.83rem; color: var(--blanco70); line-height: 1.6; margin-bottom: 10px; }
+  .nodo-senales { display: flex; flex-direction: column; gap: 5px; }
+  .senal { font-size: 0.76rem; font-family: sans-serif; color: var(--blanco70); padding: 5px 10px; background: var(--blanco20); border-radius: 8px; display: flex; gap: 6px; }
+  .liberacion .senal span { color: var(--verde-claro); }
+  .transformacion .senal span { color: #7ab8e0; }
+  .bienestar .senal span { color: #e8b84b; }
+  .nodo-yo { position: absolute; right: 14px; top: 14px; background: white; color: var(--azul-oscuro); font-size: 0.62rem; font-family: sans-serif; font-weight: 700; padding: 3px 9px; border-radius: 20px; display: none; }
+  .nodo-yo.visible { display: block; }
+  .triada-selector { background: var(--azul); border-radius: 16px; padding: 18px; border: 1px solid var(--blanco20); }
+  .selector-titulo { font-size: 0.76rem; color: var(--blanco70); font-family: sans-serif; margin-bottom: 12px; text-align: center; }
+  .selector-opciones { display: flex; flex-direction: column; gap: 8px; }
+  .selector-btn { padding: 12px 16px; border-radius: 12px; border: 1.5px solid var(--blanco20); background: transparent; color: var(--blanco); font-family: sans-serif; font-size: 0.86rem; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
+  .selector-btn.seleccionado { border-color: var(--verde); background: rgba(90,138,60,0.15); }
+  .triada-footer { padding: 16px 20px 0; }
+
+  /* ── ETAPAS ── */
+  #p-etapas { background: var(--azul-oscuro); }
+  .etapas-lista { padding: 24px 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; }
+  .etapa-card { background: var(--azul); border-radius: 16px; padding: 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; border: 1.5px solid transparent; transition: all 0.2s; }
+  .etapa-card.completada { border-color: var(--verde); }
+  .etapa-card:active { transform: scale(0.98); }
+  .etapa-icono { width: 46px; height: 46px; border-radius: 50%; background: var(--azul-oscuro); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+  .etapa-info { flex: 1; }
+  .etapa-nombre { font-size: 0.92rem; color: var(--blanco); font-family: sans-serif; font-weight: 600; margin-bottom: 2px; }
+  .etapa-desc { font-size: 0.76rem; color: var(--blanco70); font-family: sans-serif; }
+  .etapa-anos { font-size: 0.68rem; color: var(--verde-claro); font-family: sans-serif; margin-top: 3px; }
+  .check-etapa { font-size: 1rem; color: var(--verde-claro); }
+  .progreso-bar { background: var(--azul); padding: 14px 20px; border-top: 1px solid var(--blanco20); flex-shrink: 0; }
+  .progreso-label { font-size: 0.7rem; color: var(--blanco70); font-family: sans-serif; margin-bottom: 7px; }
+  .progreso-track { background: var(--blanco20); border-radius: 10px; height: 5px; overflow: hidden; }
+  .progreso-fill { background: var(--verde); height: 100%; border-radius: 10px; transition: width 0.4s; }
+
+  /* ── PREGUNTAS ── */
+  #p-preguntas { background: var(--azul-oscuro); }
+  .pregunta-header { background: var(--azul); padding: 18px 24px; border-bottom: 1px solid var(--blanco20); flex-shrink: 0; }
+  .pregunta-etapa-tag { font-size: 0.68rem; color: var(--verde-claro); font-family: sans-serif; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 5px; }
+  .pregunta-titulo { font-size: 0.95rem; color: var(--blanco); font-family: sans-serif; font-weight: 600; }
+  .pregunta-contador { padding: 14px 24px 0; font-size: 0.7rem; color: var(--blanco70); font-family: sans-serif; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blanco20); transition: background 0.3s; }
+  .dot.activo { background: var(--verde); }
+  .dot.hecho { background: var(--verde-claro); }
+  .pregunta-cuerpo { flex: 1; padding: 20px 24px 14px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+  .pregunta-texto { font-size: 1.08rem; color: var(--blanco); line-height: 1.65; font-style: italic; }
+  .pregunta-guia { font-size: 0.8rem; color: var(--blanco70); font-family: sans-serif; line-height: 1.6; background: var(--blanco20); border-radius: 12px; padding: 12px; border-left: 3px solid var(--verde); }
+  .respuesta-area { background: var(--azul); border: 1.5px solid var(--blanco20); border-radius: 14px; padding: 14px; color: var(--blanco); font-size: 0.93rem; font-family: Georgia, serif; line-height: 1.6; min-height: 120px; width: 100%; resize: none; outline: none; transition: border-color 0.2s; }
+  .respuesta-area:focus { border-color: var(--verde); }
+  .respuesta-area::placeholder { color: var(--blanco70); font-style: italic; }
+  .pregunta-footer { padding: 14px 24px 28px; display: flex; gap: 10px; flex-shrink: 0; }
+  .btn-nav { flex: 1; padding: 13px; border-radius: 50px; border: none; font-size: 0.88rem; font-family: sans-serif; cursor: pointer; }
+  .btn-anterior { background: var(--blanco20); color: var(--blanco70); }
+  .btn-siguiente { background: var(--verde); color: var(--blanco); font-weight: 600; }
+
+  /* ── REFLEXIÓN ── */
+  #p-reflexion { background: linear-gradient(160deg, var(--azul-oscuro) 0%, var(--azul) 100%); }
+  .reflexion-body { flex: 1; padding: 28px 24px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
+  .reflexion-icon { font-size: 2.6rem; text-align: center; }
+  .reflexion-titulo { font-size: 1.15rem; color: var(--blanco); text-align: center; line-height: 1.5; }
+  .reflexion-subtitulo { font-size: 0.8rem; color: var(--verde-claro); text-align: center; font-family: sans-serif; }
+  .reflexion-card { background: var(--blanco20); border-radius: 14px; padding: 18px; border-left: 3px solid var(--verde); }
+  .reflexion-card-label { font-size: 0.68rem; color: var(--verde-claro); font-family: sans-serif; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+  .reflexion-card-texto { font-size: 0.9rem; color: var(--blanco70); line-height: 1.7; font-style: italic; }
+  .reflexion-footer { padding: 0 24px 28px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+
+  /* ── RESUMEN ── */
+  #p-resumen { background: var(--azul-oscuro); }
+  .resumen-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+  .resumen-intro { font-size: 0.9rem; color: var(--blanco70); font-style: italic; line-height: 1.7; text-align: center; }
+  .resumen-etapa { background: var(--azul); border-radius: 14px; padding: 16px; border-top: 3px solid var(--verde); }
+  .resumen-etapa-nombre { font-size: 0.76rem; color: var(--verde-claro); font-family: sans-serif; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .resumen-pregunta { margin-bottom: 12px; }
+  .resumen-pregunta-texto { font-size: 0.73rem; color: var(--blanco70); font-family: sans-serif; margin-bottom: 3px; }
+  .resumen-respuesta { font-size: 0.88rem; color: var(--blanco); line-height: 1.6; font-style: italic; }
+  .resumen-footer { padding: 0 24px 28px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
+</style>
+</head>
+<body>
+
+<!-- ══ BIENVENIDA ══ -->
+<div id="p-bienvenida" class="pantalla activa">
+  <div class="bienvenida-hero">
+    <div class="logo-circulo">
+      <svg viewBox="0 0 100 100" fill="none">
+        <path d="M36 46 C31 40,28 32,33 27 C38 22,44 25,46 30 C47 24,53 21,59 25 C65 29,65 37,61 42 C66 43,68 51,64 56 C60 61,55 59,52 55 C50 59,45 61,41 58 C36 55,35 50,36 46Z" stroke="#5a8a3c" stroke-width="2"/>
+        <path d="M42 33 C45 32,48 33,51 32 C54 32,57 33,58 32" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+        <path d="M41 38 C44 37,47 38,50 37 C53 37,56 38,58 37" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+        <path d="M42 43 C45 42,48 43,51 42 C54 42,56 43,57 42" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+        <circle cx="50" cy="66" r="4" stroke="white" stroke-width="1.8"/>
+        <line x1="50" y1="70" x2="50" y2="82" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M50 74 C45 71,40 70,36 68" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M50 74 C55 71,60 70,64 68" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M50 82 C48 87,45 90,43 93" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M50 82 C52 87,55 90,57 93" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M68 73 C68 71,66 69,64 70 C62 71,62 74,64 76 C65 77,68 79,68 79 C68 79,71 77,72 76 C74 74,74 71,72 70 C70 69,68 71,68 73Z" stroke="#5a8a3c" stroke-width="1.5"/>
+        <path d="M30 73 C28 70,27 67,29 65 C31 63,33 64,34 66 C34 64,36 63,38 65 C40 67,39 70,37 73 C35 75,35 75,35 75 C35 75,31 74,30 73Z" stroke="white" stroke-width="1.3"/>
+      </svg>
+    </div>
+    <h1>SANA</h1>
+    <div class="subtitulo">Neurobiografía</div>
+    <p class="frase">"Tu historia no es tu destino.<br>Tu sufrimiento tampoco."</p>
+  </div>
+
+  <!-- PRÁCTICA DIARIA -->
+  <div class="practica-diaria">
+    <div class="seccion-titulo">🎵 Práctica diaria</div>
+
+    <!-- PLAYER PRINCIPAL -->
+    <div class="player-principal">
+      <div class="player-cancion-tag">Álbum terapéutico · Modelo SANA</div>
+      <div class="player-cancion-nombre" id="player-nombre">No estás rota</div>
+      <div class="player-cancion-eje" id="player-eje">Eje: Liberación</div>
+
+      <div class="player-barra-wrap">
+        <input type="range" class="player-barra" id="player-barra" value="0" min="0" max="100" oninput="moverBarra(this.value)">
+        <div class="player-tiempos">
+          <span id="player-tiempo">0:00</span>
+          <span id="player-total">3:45</span>
+        </div>
+      </div>
+
+      <div class="player-controles">
+        <button class="ctrl-btn" onclick="cancionAnterior()">⏮</button>
+        <button class="ctrl-play" id="btn-play" onclick="togglePlay()">▶</button>
+        <button class="ctrl-btn" onclick="cancionSiguiente()">⏭</button>
+      </div>
+    </div>
+
+    <!-- LISTA CANCIONES -->
+    <div class="canciones-lista" id="canciones-lista"></div>
+  </div>
+
+  <!-- ACCESOS RÁPIDOS -->
+  <div class="accesos">
+    <button class="acceso-btn" onclick="irA('p-triada')">
+      <div class="acceso-icon">🗺️</div>
+      <div class="acceso-label">Mi mapa SANA</div>
+    </button>
+    <button class="acceso-btn" onclick="irA('p-etapas')">
+      <div class="acceso-icon">📖</div>
+      <div class="acceso-label">Mi neurobiografía</div>
+    </button>
+    <button class="acceso-btn" onclick="irA('p-resumen')">
+      <div class="acceso-icon">✨</div>
+      <div class="acceso-label">Mi historia</div>
+    </button>
+  </div>
+
+  <div class="nav-inferior">
+    <button class="nav-btn activo" onclick="irA('p-bienvenida')"><div class="nav-btn-icon">🏠</div><div class="nav-btn-label">Inicio</div></button>
+    <button class="nav-btn" onclick="irA('p-triada')"><div class="nav-btn-icon">🗺️</div><div class="nav-btn-label">Mi mapa</div></button>
+    <button class="nav-btn" onclick="irA('p-etapas')"><div class="nav-btn-icon">📖</div><div class="nav-btn-label">Etapas</div></button>
+    <button class="nav-btn" onclick="irA('p-resumen')"><div class="nav-btn-icon">✨</div><div class="nav-btn-label">Historia</div></button>
+  </div>
+</div>
+
+<!-- ══ TRÍADA ══ -->
+<div id="p-triada" class="pantalla">
+  <div class="header-app">
+    <button class="btn-back" onclick="irA('p-bienvenida')">←</button>
+    <div><div class="header-titulo">Mi Mapa SANA</div><div class="header-sub">Liberación · Transformación · Bienestar</div></div>
+  </div>
+  <div class="triada-body">
+    <p class="triada-intro">El Modelo SANA propone un camino de tres momentos. Toca el que sientes que describe dónde estás hoy.</p>
+    <div>
+      <div class="triada-nodo liberacion" id="nodo-liberacion" onclick="toggleNodo('liberacion')">
+        <div class="nodo-yo" id="yo-liberacion">← Estoy aquí</div>
+        <div class="nodo-header"><div class="nodo-icono">🔓</div><div><div class="nodo-nombre">Liberación</div><div class="nodo-tag">Primer momento</div></div></div>
+        <div class="nodo-desc">Reconocer y soltar lo que el cuerpo y la historia han estado cargando.</div>
+        <div class="nodo-senales">
+          <div class="senal"><span>●</span> Empiezas a ver patrones que se repiten</div>
+          <div class="senal"><span>●</span> Algo en ti quiere soltarse</div>
+          <div class="senal"><span>●</span> Reconoces que lo que sientes tiene un origen</div>
+        </div>
+      </div>
+      <div class="triada-flecha"></div>
+      <div class="triada-nodo transformacion" id="nodo-transformacion" onclick="toggleNodo('transformacion')">
+        <div class="nodo-yo" id="yo-transformacion">← Estoy aquí</div>
+        <div class="nodo-header"><div class="nodo-icono">🌀</div><div><div class="nodo-nombre">Transformación</div><div class="nodo-tag">Segundo momento</div></div></div>
+        <div class="nodo-desc">Integrar la historia para que deje de gobernar tu presente sin que lo notes.</div>
+        <div class="nodo-senales">
+          <div class="senal"><span>●</span> Lo que antes te desbordaba ya no tiene el mismo peso</div>
+          <div class="senal"><span>●</span> Puedes hablar de tu historia sin que te reviva</div>
+          <div class="senal"><span>●</span> Empiezas a elegir en lugar de solo reaccionar</div>
+        </div>
+      </div>
+      <div class="triada-flecha"></div>
+      <div class="triada-nodo bienestar" id="nodo-bienestar" onclick="toggleNodo('bienestar')">
+        <div class="nodo-yo" id="yo-bienestar">← Estoy aquí</div>
+        <div class="nodo-header"><div class="nodo-icono">🌅</div><div><div class="nodo-nombre">Bienestar</div><div class="nodo-tag">Tercer momento</div></div></div>
+        <div class="nodo-desc">Vivir desde un lugar nuevo — no sin historia, sino sin que la historia decida por ti.</div>
+        <div class="nodo-senales">
+          <div class="senal"><span>●</span> Sientes coherencia entre lo que piensas, sientes y haces</div>
+          <div class="senal"><span>●</span> Tu cuerpo está más tranquilo</div>
+          <div class="senal"><span>●</span> Puedes acompañar a otros sin perderte</div>
+        </div>
+      </div>
+    </div>
+    <div class="triada-selector">
+      <div class="selector-titulo">¿En cuál de estos momentos te reconoces hoy?</div>
+      <div class="selector-opciones">
+        <button class="selector-btn" id="sel-liberacion" onclick="seleccionarMomento('liberacion')">🔓 Estoy en Liberación</button>
+        <button class="selector-btn" id="sel-transformacion" onclick="seleccionarMomento('transformacion')">🌀 Estoy en Transformación</button>
+        <button class="selector-btn" id="sel-bienestar" onclick="seleccionarMomento('bienestar')">🌅 Estoy en Bienestar</button>
+        <button class="selector-btn" id="sel-ninguno" onclick="seleccionarMomento('ninguno')">🤍 Aún no lo sé</button>
+      </div>
+    </div>
+    <div class="triada-footer">
+      <button class="btn-principal" onclick="irA('p-etapas')">Explorar mi historia</button>
+    </div>
+  </div>
+  <div class="nav-inferior">
+    <button class="nav-btn" onclick="irA('p-bienvenida')"><div class="nav-btn-icon">🏠</div><div class="nav-btn-label">Inicio</div></button>
+    <button class="nav-btn activo" onclick="irA('p-triada')"><div class="nav-btn-icon">🗺️</div><div class="nav-btn-label">Mi mapa</div></button>
+    <button class="nav-btn" onclick="irA('p-etapas')"><div class="nav-btn-icon">📖</div><div class="nav-btn-label">Etapas</div></button>
+    <button class="nav-btn" onclick="irA('p-resumen')"><div class="nav-btn-icon">✨</div><div class="nav-btn-label">Historia</div></button>
+  </div>
+</div>
+
+<!-- ══ ETAPAS ══ -->
+<div id="p-etapas" class="pantalla">
+  <div class="header-app">
+    <button class="btn-back" onclick="irA('p-bienvenida')">←</button>
+    <div><div class="header-titulo">Mi Neurobiografía</div><div class="header-sub">Elige una etapa de tu vida</div></div>
+  </div>
+  <div class="etapas-lista" id="lista-etapas"></div>
+  <div class="progreso-bar">
+    <div class="progreso-label" id="progreso-label">0 de 6 etapas exploradas</div>
+    <div class="progreso-track"><div class="progreso-fill" id="progreso-fill" style="width:0%"></div></div>
+  </div>
+  <div class="nav-inferior">
+    <button class="nav-btn" onclick="irA('p-bienvenida')"><div class="nav-btn-icon">🏠</div><div class="nav-btn-label">Inicio</div></button>
+    <button class="nav-btn" onclick="irA('p-triada')"><div class="nav-btn-icon">🗺️</div><div class="nav-btn-label">Mi mapa</div></button>
+    <button class="nav-btn activo" onclick="irA('p-etapas')"><div class="nav-btn-icon">📖</div><div class="nav-btn-label">Etapas</div></button>
+    <button class="nav-btn" onclick="irA('p-resumen')"><div class="nav-btn-icon">✨</div><div class="nav-btn-label">Historia</div></button>
+  </div>
+</div>
+
+<!-- ══ PREGUNTAS ══ -->
+<div id="p-preguntas" class="pantalla">
+  <div class="pregunta-header">
+    <div class="pregunta-etapa-tag" id="pq-tag"></div>
+    <div class="pregunta-titulo" id="pq-titulo"></div>
+  </div>
+  <div class="pregunta-contador"><span id="pq-numero"></span><div class="dots" id="pq-dots"></div></div>
+  <div class="pregunta-cuerpo">
+    <p class="pregunta-texto" id="pq-texto"></p>
+    <div class="pregunta-guia" id="pq-guia"></div>
+    <textarea class="respuesta-area" id="pq-respuesta" placeholder="Escribe lo que recuerdas, lo que sientes, lo que venga..."></textarea>
+  </div>
+  <div class="pregunta-footer">
+    <button class="btn-nav btn-anterior" onclick="preguntaAnterior()">← Anterior</button>
+    <button class="btn-nav btn-siguiente" id="btn-sig" onclick="preguntaSiguiente()">Siguiente →</button>
+  </div>
+</div>
+
+<!-- ══ REFLEXIÓN ══ -->
+<div id="p-reflexion" class="pantalla">
+  <div class="header-app">
+    <button class="btn-back" onclick="irA('p-preguntas')">←</button>
+    <div><div class="header-titulo">Reflexión SANA</div><div class="header-sub" id="ref-tag"></div></div>
+  </div>
+  <div class="reflexion-body">
+    <div class="reflexion-icon">🌱</div>
+    <div class="reflexion-titulo" id="ref-titulo"></div>
+    <div class="reflexion-subtitulo" id="ref-subtitulo"></div>
+    <div class="reflexion-card"><div class="reflexion-card-label">Lo que tu historia dice</div><div class="reflexion-card-texto" id="ref-texto"></div></div>
+    <div class="reflexion-card"><div class="reflexion-card-label">Pregunta para seguir</div><div class="reflexion-card-texto" id="ref-pregunta"></div></div>
+  </div>
+  <div class="reflexion-footer">
+    <button class="btn-principal" onclick="completarEtapa()">Guardar esta etapa</button>
+    <button class="btn-secundario" onclick="irA('p-etapas')">Explorar otra etapa</button>
+  </div>
+</div>
+
+<!-- ══ RESUMEN ══ -->
+<div id="p-resumen" class="pantalla">
+  <div class="header-app">
+    <button class="btn-back" onclick="irA('p-bienvenida')">←</button>
+    <div><div class="header-titulo">Mi Historia</div><div class="header-sub">Tu Neurobiografía completa</div></div>
+  </div>
+  <div class="resumen-body" id="resumen-body"></div>
+  <div class="resumen-footer"><button class="btn-principal" onclick="irA('p-etapas')">Seguir explorando</button></div>
+  <div class="nav-inferior">
+    <button class="nav-btn" onclick="irA('p-bienvenida')"><div class="nav-btn-icon">🏠</div><div class="nav-btn-label">Inicio</div></button>
+    <button class="nav-btn" onclick="irA('p-triada')"><div class="nav-btn-icon">🗺️</div><div class="nav-btn-label">Mi mapa</div></button>
+    <button class="nav-btn" onclick="irA('p-etapas')"><div class="nav-btn-icon">📖</div><div class="nav-btn-label">Etapas</div></button>
+    <button class="nav-btn activo" onclick="irA('p-resumen')"><div class="nav-btn-icon">✨</div><div class="nav-btn-label">Historia</div></button>
+  </div>
+</div>
+
+<script>
+// ── CANCIONES ──
+const canciones = [
+  { nombre:'No estás rota', eje:'Eje: Liberación', duracion:'3:45', src:null },
+  { nombre:'Tu cuerpo habla', eje:'Eje: Integración somática', duracion:'4:12', src:null },
+  { nombre:'Suéltalo', eje:'Eje: Descarga emocional', duracion:'3:58', src:null },
+  { nombre:'Ya pasó', eje:'Eje: Transformación', duracion:'4:30', src:null },
+  { nombre:'El poder siempre estuvo en ti', eje:'Eje: Bienestar', duracion:'5:02', src:null },
+];
+
+let cancionActual = 0;
+let reproduciendo = false;
+let audioEl = null;
+let timerSimulado = null;
+let progSimulado = 0;
+
+function renderCanciones() {
+  const lista = document.getElementById('canciones-lista');
+  lista.innerHTML = '';
+  canciones.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'cancion-item' + (i === cancionActual ? ' activa' : '');
+    div.id = 'cancion-' + i;
+    const ondas = i === cancionActual && reproduciendo
+      ? `<div class="cancion-ondas"><div class="onda"></div><div class="onda"></div><div class="onda"></div><div class="onda"></div></div>`
+      : `<div style="color:var(--blanco70);font-size:0.8rem;">${i === cancionActual ? '▶' : '○'}</div>`;
+    div.innerHTML = `
+      <div class="cancion-num">${i+1}</div>
+      <div class="cancion-info">
+        <div class="cancion-nombre">${c.nombre}</div>
+        <div class="cancion-eje">${c.eje}</div>
+      </div>
+      <div class="cancion-duracion">${c.duracion}</div>
+      ${ondas}
+    `;
+    div.onclick = () => seleccionarCancion(i);
+    lista.appendChild(div);
+  });
+}
+
+function actualizarPlayer() {
+  const c = canciones[cancionActual];
+  document.getElementById('player-nombre').textContent = c.nombre;
+  document.getElementById('player-eje').textContent = c.eje;
+  document.getElementById('player-total').textContent = c.duracion;
+  document.getElementById('player-barra').value = 0;
+  document.getElementById('player-tiempo').textContent = '0:00';
+}
+
+function seleccionarCancion(i) {
+  cancionActual = i;
+  reproduciendo = false;
+  clearInterval(timerSimulado);
+  progSimulado = 0;
+  document.getElementById('btn-play').textContent = '▶';
+  actualizarPlayer();
+  renderCanciones();
+}
+
+function togglePlay() {
+  if (!canciones[cancionActual].src) {
+    // Simulación visual cuando no hay audio
+    reproduciendo = !reproduciendo;
+    document.getElementById('btn-play').textContent = reproduciendo ? '⏸' : '▶';
+    renderCanciones();
+    if (reproduciendo) {
+      const durParts = canciones[cancionActual].duracion.split(':');
+      const durSeg = parseInt(durParts[0])*60 + parseInt(durParts[1]);
+      timerSimulado = setInterval(() => {
+        progSimulado++;
+        if (progSimulado >= durSeg) { clearInterval(timerSimulado); cancionSiguiente(); return; }
+        const pct = (progSimulado/durSeg)*100;
+        document.getElementById('player-barra').value = pct;
+        const m = Math.floor(progSimulado/60), s = progSimulado%60;
+        document.getElementById('player-tiempo').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+      }, 1000);
+    } else {
+      clearInterval(timerSimulado);
+    }
+    return;
+  }
+}
+
+function cancionSiguiente() {
+  seleccionarCancion((cancionActual+1) % canciones.length);
+}
+function cancionAnterior() {
+  seleccionarCancion((cancionActual-1+canciones.length) % canciones.length);
+}
+function moverBarra(v) {
+  const durParts = canciones[cancionActual].duracion.split(':');
+  const durSeg = parseInt(durParts[0])*60+parseInt(durParts[1]);
+  progSimulado = Math.floor((v/100)*durSeg);
+  const m=Math.floor(progSimulado/60), s=progSimulado%60;
+  document.getElementById('player-tiempo').textContent=`${m}:${s.toString().padStart(2,'0')}`;
+}
+
+// ── ETAPAS ──
+const etapas = [
+  {id:'infancia',nombre:'Primera infancia',icon:'🌱',anos:'0 – 6 años',desc:'Los primeros vínculos y aprendizajes',
+   preguntas:[{texto:'¿Qué recuerdas de tu hogar cuando eras muy pequeña?',guia:'No importa si los recuerdos son fragmentados. Trae cualquier imagen, sensación u emoción.'},{texto:'¿Cómo era la relación con tu madre y padre en esos primeros años?',guia:'Describe lo que sentías. ¿Te sentías segura, vista, acompañada?'},{texto:'¿Hubo algo que te asustara o doliera sin que nadie lo viera?',guia:'A veces los niños cargan solos cosas muy grandes. Este es el espacio para nombrarlo.'}],
+   reflexion:{titulo:'Tus raíces también son tu historia',subtitulo:'Primera infancia explorada',texto:'Lo que viviste en los primeros años quedó guardado en tu cuerpo antes de que pudieras ponerle palabras.',pregunta:'¿Qué necesitaba esa niña que no recibió — y que hoy podrías darte tú misma?'}},
+  {id:'ninez',nombre:'Niñez',icon:'🧩',anos:'7 – 12 años',desc:'El mundo más allá del hogar',
+   preguntas:[{texto:'¿Cómo era tu lugar en la familia cuando ibas a la escuela?',guia:'¿Eras la responsable, la invisible, la mediadora?'},{texto:'¿Qué te gustaba hacer y qué se te daba bien?',guia:'Trae lo que te encendía por dentro.'},{texto:'¿Hubo algún momento difícil que cambiara algo en ti?',guia:'Una pérdida, una humillación, un cambio. Algo que después no fue igual.'}],
+   reflexion:{titulo:'El niño que aprendió a adaptarse',subtitulo:'Niñez explorada',texto:'Aprendiste estrategias para sobrevivir. Hoy puedes elegir cuáles sigues necesitando.',pregunta:'¿Qué creencia sobre ti misma te formaste en esa época que todavía llevas?'}},
+  {id:'adolescencia',nombre:'Adolescencia',icon:'🌊',anos:'13 – 19 años',desc:'Identidad, pertenencia y primeras heridas',
+   preguntas:[{texto:'¿Cómo te sentías contigo misma en esa época?',guia:'Con tu cuerpo, tu valor, tu lugar en el mundo.'},{texto:'¿Hubo personas que te marcaron — para bien o para mal?',guia:'Amigos, figuras de autoridad, amores.'},{texto:'¿Qué decisiones tomaste entonces que hoy entiendes diferente?',guia:'No para juzgarte — para ver con ojos nuevos.'}],
+   reflexion:{titulo:'La búsqueda de quién eres',subtitulo:'Adolescencia explorada',texto:'En la adolescencia el dolor no expresado se convierte en estrategia.',pregunta:'¿Qué parte de ti quedó sin voz en esa época?'}},
+  {id:'adultez',nombre:'Adultez temprana',icon:'🔑',anos:'20 – 35 años',desc:'Decisiones, vínculos y construcción',
+   preguntas:[{texto:'¿Cómo fueron tus primeras relaciones de pareja o de amor?',guia:'¿Qué patrones reconoces?'},{texto:'¿Qué elegiste construir — y qué dejaste atrás?',guia:'Trabajo, estudios, proyectos, lugares.'},{texto:'¿Hubo algo que perdieras que moldeó quién eres hoy?',guia:'Duelos, fracasos, traiciones, logros.'}],
+   reflexion:{titulo:'Lo que construiste con lo que tenías',subtitulo:'Adultez temprana explorada',texto:'Las decisiones de esta etapa no se tomaron en el vacío. La neurobiografía no juzga — comprende.',pregunta:'¿Qué necesitabas que no te dabas porque no creías merecerlo?'}},
+  {id:'cuerpo',nombre:'Tu cuerpo habla',icon:'💫',anos:'A lo largo de tu vida',desc:'Las señales que el cuerpo ha guardado',
+   preguntas:[{texto:'¿En qué parte de tu cuerpo sientes la tensión, el dolor, el miedo?',guia:'El cuerpo no miente. ¿Dónde guarda él lo que la mente no quiere ver?'},{texto:'¿Qué síntoma físico ha acompañado tus momentos de mayor estrés?',guia:'Dolores de cabeza, contracturas, digestión, piel.'},{texto:'¿Ha habido una enfermedad que apareció justo después de algo difícil?',guia:'Como el cuerpo reflejando lo que no pudo procesarse.'}],
+   reflexion:{titulo:'Tu cuerpo siempre estuvo contando la historia',subtitulo:'Cuerpo explorado',texto:'El cuerpo no es el enemigo. Es el guardián. Ha estado cargando lo que no pudiste soltar.',pregunta:'¿Qué le dirías a tu cuerpo si pudieras hablarle hoy?'}},
+  {id:'hoy',nombre:'Hoy',icon:'🌅',anos:'El presente',desc:'Dónde estás y hacia dónde vas',
+   preguntas:[{texto:'¿Qué patrón en tu vida actual reconoces que viene de mucho antes?',guia:'Una forma de relacionarte, de reaccionar, de protegerte.'},{texto:'¿Qué estás cargando hoy que ya no te pertenece?',guia:'Culpas, mandatos, heridas de otros.'},{texto:'¿Qué necesitas soltar para que el poder de sanar actúe en ti?',guia:'No lo que "deberías" — lo que realmente sientes.'}],
+   reflexion:{titulo:'El poder de sanar siempre ha estado en ti',subtitulo:'Presente explorado',texto:'Todo lo que exploraste hoy no es tu condena. Es tu punto de partida.',pregunta:'¿Qué versión de ti quiere emerger cuando sueltes lo que ya no te pertenece?'}}
+];
+
+let etapaActual=null, preguntaActual=0;
+let respuestas={}, etapasCompletadas=new Set(), momentoActual=null;
+
+try { const d=JSON.parse(sessionStorage.getItem('neuro')||'{}'); respuestas=d.r||{}; etapasCompletadas=new Set(d.c||[]); momentoActual=d.m||null; } catch(e){}
+function guardar(){ try{ sessionStorage.setItem('neuro',JSON.stringify({r:respuestas,c:[...etapasCompletadas],m:momentoActual})); }catch(e){} }
+
+function irA(id){
+  document.querySelectorAll('.pantalla').forEach(p=>p.classList.remove('activa'));
+  const p=document.getElementById(id); p.classList.add('activa');
+  void p.offsetWidth; p.classList.add('fade-in');
+  if(id==='p-etapas') renderEtapas();
+  if(id==='p-resumen') renderResumen();
+  if(id==='p-triada') renderTriada();
+}
+
+function renderTriada(){
+  ['liberacion','transformacion','bienestar'].forEach(m=>{
+    document.getElementById('yo-'+m).classList.toggle('visible',momentoActual===m);
+    document.getElementById('nodo-'+m).classList.toggle('activo',momentoActual===m);
+    document.getElementById('sel-'+m).classList.toggle('seleccionado',momentoActual===m);
+  });
+  document.getElementById('sel-ninguno').classList.toggle('seleccionado',momentoActual==='ninguno');
+}
+function toggleNodo(id){ seleccionarMomento(momentoActual===id?null:id); }
+function seleccionarMomento(m){ momentoActual=m; guardar(); renderTriada(); }
+
+function renderEtapas(){
+  const lista=document.getElementById('lista-etapas'); lista.innerHTML='';
+  etapas.forEach((e,i)=>{
+    const comp=etapasCompletadas.has(e.id);
+    const div=document.createElement('div'); div.className='etapa-card'+(comp?' completada':'');
+    div.innerHTML=`<div class="etapa-icono">${e.icon}</div><div class="etapa-info"><div class="etapa-nombre">${e.nombre}</div><div class="etapa-desc">${e.desc}</div><div class="etapa-anos">${e.anos}</div></div><div class="check-etapa">${comp?'✓':'›'}</div>`;
+    div.onclick=()=>abrirEtapa(i); lista.appendChild(div);
+  });
+  const pct=Math.round((etapasCompletadas.size/etapas.length)*100);
+  document.getElementById('progreso-fill').style.width=pct+'%';
+  document.getElementById('progreso-label').textContent=`${etapasCompletadas.size} de ${etapas.length} etapas exploradas`;
+}
+
+function abrirEtapa(idx){ etapaActual=idx; preguntaActual=0; renderPregunta(); irA('p-preguntas'); }
+
+function renderPregunta(){
+  const e=etapas[etapaActual],pq=e.preguntas[preguntaActual],total=e.preguntas.length;
+  document.getElementById('pq-tag').textContent=e.nombre.toUpperCase()+' · '+e.anos;
+  document.getElementById('pq-titulo').textContent=e.desc;
+  document.getElementById('pq-numero').textContent=`Pregunta ${preguntaActual+1} de ${total}`;
+  document.getElementById('pq-texto').textContent=pq.texto;
+  document.getElementById('pq-guia').textContent=pq.guia;
+  const dots=document.getElementById('pq-dots'); dots.innerHTML='';
+  e.preguntas.forEach((_,i)=>{ const d=document.createElement('div'); d.className='dot'+(i<preguntaActual?' hecho':i===preguntaActual?' activo':''); dots.appendChild(d); });
+  document.getElementById('pq-respuesta').value=respuestas[`${e.id}_${preguntaActual}`]||'';
+  document.getElementById('btn-sig').textContent=preguntaActual===total-1?'Ver reflexión →':'Siguiente →';
+  document.querySelector('.btn-anterior').style.visibility=preguntaActual===0?'hidden':'visible';
+}
+
+function guardarRespuesta(){ respuestas[`${etapas[etapaActual].id}_${preguntaActual}`]=document.getElementById('pq-respuesta').value; guardar(); }
+function preguntaSiguiente(){ guardarRespuesta(); if(preguntaActual<etapas[etapaActual].preguntas.length-1){preguntaActual++;renderPregunta();}else mostrarReflexion(); }
+function preguntaAnterior(){ guardarRespuesta(); if(preguntaActual>0){preguntaActual--;renderPregunta();}else irA('p-etapas'); }
+
+function mostrarReflexion(){
+  const r=etapas[etapaActual].reflexion;
+  document.getElementById('ref-tag').textContent=etapas[etapaActual].nombre;
+  document.getElementById('ref-titulo').textContent=r.titulo;
+  document.getElementById('ref-subtitulo').textContent=r.subtitulo;
+  document.getElementById('ref-texto').textContent=r.texto;
+  document.getElementById('ref-pregunta').textContent=r.pregunta;
+  irA('p-reflexion');
+}
+function completarEtapa(){ etapasCompletadas.add(etapas[etapaActual].id); guardar(); irA('p-etapas'); }
+
+function renderResumen(){
+  const body=document.getElementById('resumen-body');
+  body.innerHTML='<p class="resumen-intro">"Aquí está lo que has vivido.<br>Esto no te define — describe lo que atravesaste."</p>';
+  if(momentoActual&&momentoActual!=='ninguno'){
+    const nombres={liberacion:'Liberación 🔓',transformacion:'Transformación 🌀',bienestar:'Bienestar 🌅'};
+    const tag=document.createElement('div');
+    tag.style.cssText='background:rgba(90,138,60,0.15);border:1.5px solid #5a8a3c;border-radius:12px;padding:14px;font-family:sans-serif;font-size:0.85rem;color:#7ab050;text-align:center;';
+    tag.textContent=`Estás en el momento de ${nombres[momentoActual]}`;
+    body.appendChild(tag);
+  }
+  if(etapasCompletadas.size===0){
+    const msg=document.createElement('p');
+    msg.style.cssText='color:rgba(255,255,255,0.5);font-family:sans-serif;font-size:0.85rem;text-align:center;padding:20px 0;';
+    msg.textContent='Aún no has explorado ninguna etapa.';
+    body.appendChild(msg); return;
+  }
+  etapas.forEach(e=>{
+    if(!etapasCompletadas.has(e.id)) return;
+    const card=document.createElement('div'); card.className='resumen-etapa';
+    let html=`<div class="resumen-etapa-nombre">${e.icon} ${e.nombre} · ${e.anos}</div>`;
+    e.preguntas.forEach((pq,i)=>{ const resp=respuestas[`${e.id}_${i}`]; if(resp&&resp.trim()) html+=`<div class="resumen-pregunta"><div class="resumen-pregunta-texto">${pq.texto}</div><div class="resumen-respuesta">${resp}</div></div>`; });
+    card.innerHTML=html; body.appendChild(card);
+  });
+}
+
+// INIT
+renderCanciones();
+actualizarPlayer();
+renderEtapas();
+</script>
+</body>
+</html>
