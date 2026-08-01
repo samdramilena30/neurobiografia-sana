@@ -423,7 +423,7 @@
       ">🎙️ Habla · ✍️ Escribe</div>
 
       <!-- Botón enviar -->
-      <button onclick="enviarMensaje()" style="
+      <button id="btn-enviar" onclick="enviarMensaje()" style="
         background: linear-gradient(135deg, #5a8a3c, #7ab050);
         color: white; border: none; border-radius: 50px;
         padding: 12px 20px; font-family: sans-serif;
@@ -952,10 +952,19 @@ let recognition = null;
 let vozSilenciada = false;
 let vozSintetizando = false;
 
+let enviando = false;
+
 async function enviarMensaje() {
+  if (enviando) return;
+
   const input = document.getElementById('habla-input');
   const texto = input.value.trim();
   if (!texto) return;
+
+  enviando = true;
+  const botonEnviar = document.getElementById('btn-enviar');
+  if (botonEnviar) botonEnviar.disabled = true;
+  input.disabled = true;
 
   // Mostrar mensaje del usuario
   agregarBurbuja(texto, 'usuario');
@@ -968,18 +977,21 @@ async function enviarMensaje() {
   const indicadorId = mostrarEscribiendo();
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
         system: PROMPT_SANA,
         messages: historialChat
       })
     });
 
     const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error de la función serverless');
+    }
+
     const respuesta = data.content[0].text;
 
     // Quitar indicador y mostrar respuesta
@@ -994,8 +1006,14 @@ async function enviarMensaje() {
     scrollFinal();
 
   } catch(e) {
+    console.error('Error en enviarMensaje:', e);
     quitarEscribiendo(indicadorId);
     agregarBurbuja('Algo no funcionó. Intenta de nuevo en un momento.', 'sana');
+  } finally {
+    enviando = false;
+    if (botonEnviar) botonEnviar.disabled = false;
+    input.disabled = false;
+    input.focus();
   }
 }
 
