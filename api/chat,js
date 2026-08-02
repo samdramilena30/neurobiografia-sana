@@ -1,1 +1,34 @@
 
+import { GoogleGenAI } from '@google/genai';
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { messages } = req.body;
+    
+    // Inicializa la API de Gemini usando la variable de entorno que guardamos en Vercel
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    // Convierte el historial de mensajes al formato que espera Gemini
+    const contents = messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: contents,
+      config: {
+        systemInstruction: "Eres el Asistente SANA, un espacio de paz y claridad mental...", // Aquí puedes poner tu instrucción de sistema o prompt personalizado si lo tenías
+      }
+    });
+
+    return res.status(200).json({ reply: response.text });
+  } catch (error) {
+    console.error('Error al conectar con Gemini:', error);
+    return res.status(500).json({ error: 'Algo no funcionó. Intenta de nuevo en un momento.' });
+  }
+}
