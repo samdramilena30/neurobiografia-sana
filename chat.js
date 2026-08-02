@@ -1,12 +1,5 @@
-// Función serverless de Vercel.
-// Recibe los mensajes del chat "Habla conmigo" desde el navegador,
-// llama a la API de Anthropic con la clave guardada de forma segura
-// en las variables de entorno de Vercel (nunca queda visible en el código
-// ni en el navegador del usuario), y devuelve la respuesta.
-
+// Función serverless de Vercel para Google Gemini.
 module.exports = async (req, res) => {
-  // Permitir llamadas desde cualquier origen (útil si el sitio estático
-  // vive en un dominio distinto al de esta función).
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -28,37 +21,44 @@ module.exports = async (req, res) => {
     return;
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    res.status(500).json({ error: 'Falta configurar ANTHROPIC_API_KEY en Vercel' });
+  if (!process.env.GEMINI_API_KEY) {
+    res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en Vercel' });
     return;
   }
 
   try {
-    const respuestaAnthropic = await fetch('https://api.anthropic.com/v1/messages', {
+    // Convertir el formato de mensajes al que requiere la API oficial de Gemini
+    const contents = messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    const payload = { contents };
+    if (system) {
+      payload.system_instruction = { parts: [{ text: system }] };
+    }
+
+    const respuestaGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: system || '',
-        messages
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
 
-    const datos = await respuestaAnthropic.json();
+    const datos = await respuestaGemini.json();
 
-    if (!respuestaAnthropic.ok) {
-      res.status(respuestaAnthropic.status).json({
-        error: (datos.error && datos.error.message) || 'Error al hablar con la API de Anthropic'
+    if (!respuestaGemini.ok) {
+      res.status(respuestaGemini.status).json({
+        error: (datos.error && datos.error.message) || 'Error al hablar con la API de Gemini'
       });
       return;
     }
 
-    res.status(200).json(datos);
+    // Extraer la respuesta adaptándola al formato que espera tu chat
+    const textoRespuesta = datos.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    res.status(200).json({
+      content: [{ text: textoRespuesta }]
+    });
   } catch (error) {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
