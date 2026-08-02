@@ -7,26 +7,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages } = req.body;
-    
-    // Inicializa la instancia usando la variable de entorno de Vercel
+    const { messages, system } = req.body;
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    // Convierte el historial de mensajes al formato correcto que espera el SDK
     const contents = messages.map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
     }));
 
-    // Realiza la petición usando el identificador estándar compatible
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-flash',
       contents: contents,
+      config: system ? { systemInstruction: system } : undefined
     });
 
     return res.status(200).json({ reply: response.text });
   } catch (error) {
-    console.error('Error en la API:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('Error detallado:', error);
+    return res.status(500).json({ error: error.message || 'Error interno' });
   }
 }
