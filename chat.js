@@ -1,65 +1,36 @@
-// Función serverless de Vercel para Google Gemini.
-module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+import { GoogleGenAI } from '@google/genai';
 
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Método no permitido' });
-    return;
-  }
-
-  const { messages, system } = req.body || {};
-
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    res.status(400).json({ error: 'Faltan mensajes' });
-    return;
-  }
-
-  if (!process.env.GEMINI_API_KEY) {
-    res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en Vercel' });
-    return;
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // Convertir el formato de mensajes al que requiere la API oficial de Gemini
+    const { messages } = req.body;
+    
+    // Inicializa la API de Gemini usando la variable de entorno de Vercel
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+    // Convierte el historial de mensajes al formato que espera Gemini
     const contents = messages.map(msg => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }]
     }));
 
-    const payload = { contents };
-    if (system) {
-      payload.system_instruction = { parts: [{ text: system }] };
-    }
-
-    const respuestaGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: contents,
+      config: {
+        systemInstruction: "Eres el Asistente SANA, un espacio de paz y claridad mental...",
+      }
     });
 
-    const datos = await respuestaGemini.json();
+    // Forma segura y compatible de extraer el texto de la respuesta en el SDK actual
+    const replyText = response.text || (response.candidates?.[0]?.content?.parts?.[0]?.text) || "";
 
-    if (!respuestaGemini.ok) {
-      res.status(respuestaGemini.status).json({
-        error: (datos.error && datos.error.message) || 'Error al hablar con la API de Gemini'
-      });
-      return;
-    }
-
-    // Extraer la respuesta adaptándola al formato que espera tu chat
-    const textoRespuesta = datos.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    res.status(200).json({
-      content: [{ text: textoRespuesta }]
-    });
+    return res.status(200).json({ reply: replyText });
   } catch (error) {
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('Error al conectar con Gemini:', error);
+    return res.status(500).json({ error: 'Algo no funcionó. Intenta de nuevo en un momento.' });
   }
-};
+}
