@@ -48,7 +48,10 @@ module.exports = async (req, res) => {
 
     const cuerpoSolicitud = {
       contents: contenidoGemini,
-      generationConfig: { maxOutputTokens: 1000 }
+      generationConfig: {
+        maxOutputTokens: 2048,
+        thinkingConfig: { thinkingLevel: 'low' }
+      }
     };
     if (system) {
       cuerpoSolicitud.systemInstruction = { parts: [{ text: system }] };
@@ -95,6 +98,8 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
   }
 };
+
+
   
   
   
