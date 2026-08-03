@@ -1,7 +1,5 @@
 
-
-  
-     // Función serverless de Vercel.
+// Función serverless de Vercel.
 // Recibe los mensajes del chat "Habla conmigo" desde el navegador,
 // llama a la API de Gemini (Google AI Studio) con la clave guardada de forma
 // segura en las variables de entorno de Vercel (nunca queda visible en el
@@ -57,7 +55,7 @@ module.exports = async (req, res) => {
     }
 
     const respuestaGemini = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' +
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' +
         process.env.GEMINI_API_KEY,
       {
         method: 'POST',
@@ -97,3 +95,14 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
   }
 };
+  
+  
+  
+
+  
+  
+
+   
+
+  
+  
