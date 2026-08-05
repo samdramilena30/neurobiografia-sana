@@ -56,23 +56,59 @@ module.exports = async (req, res) => {
       cuerpoSolicitud.systemInstruction = { parts: [{ text: system }] };
     }
 
-    const respuestaGemini = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' +
-        process.env.GEMINI_API_KEY,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cuerpoSolicitud)
+    // Lista de modelos a intentar, en orden. Si el primero está saturado
+    // (error 429/503) o falla, se intenta automáticamente con el siguiente,
+    // para que la persona nunca se quede sin respuesta por una sobrecarga
+    // temporal de un solo modelo.
+    const modelos = [
+      process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+      'gemini-2.5-flash',
+      'gemini-2.0-flash'
+    ];
+
+    let datos = null;
+    let ultimoError = null;
+    let ultimoStatus = 500;
+
+    for (const modelo of modelos) {
+      let respuestaGemini;
+      try {
+        respuestaGemini = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=` +
+            process.env.GEMINI_API_KEY,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cuerpoSolicitud)
+          }
+        );
+      } catch (e) {
+        console.error(`Error de red con el modelo ${modelo}:`, e);
+        ultimoError = e.message;
+        continue;
       }
-    );
 
-    const datos = await respuestaGemini.json();
+      const datosIntento = await respuestaGemini.json();
 
-    if (!respuestaGemini.ok) {
-      console.error('Error de Gemini:', JSON.stringify(datos));
-      res.status(respuestaGemini.status).json({
-        error: (datos.error && datos.error.message) || 'Error al hablar con la API de Gemini'
-      });
+      if (respuestaGemini.ok) {
+        datos = datosIntento;
+        break;
+      }
+
+      console.error(`Modelo ${modelo} no disponible (${respuestaGemini.status}):`, JSON.stringify(datosIntento));
+      ultimoError = (datosIntento.error && datosIntento.error.message) || 'Error al hablar con la API de Gemini';
+      ultimoStatus = respuestaGemini.status;
+
+      // Si el error no es por saturación/límite de tasa (429/503) sino algo
+      // como una solicitud mal formada (400) o clave inválida (401/403),
+      // reintentar con otro modelo no va a ayudar — se detiene de inmediato.
+      if (![429, 503].includes(respuestaGemini.status)) {
+        break;
+      }
+    }
+
+    if (!datos) {
+      res.status(ultimoStatus).json({ error: ultimoError || 'Todos los modelos de Gemini no están disponibles' });
       return;
     }
 
@@ -97,5 +133,4 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
   }
 };
-
 
