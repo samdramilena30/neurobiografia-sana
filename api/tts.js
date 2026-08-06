@@ -1,4 +1,5 @@
-// Función serverless de Vercel.
+
+    // Función serverless de Vercel.
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama al
 // modelo de texto a voz de Gemini, usando la MISMA clave (GEMINI_API_KEY) que
 // ya está configurada en Vercel para el chat. No requiere ninguna cuenta ni
@@ -59,59 +60,76 @@ module.exports = async (req, res) => {
       'gemini-2.5-pro-preview-tts'
     ];
 
+    // Claves a intentar, en orden: primero la gratuita de siempre. Si existe
+    // GEMINI_API_KEY_PAGO (un segundo proyecto de Google con facturación
+    // activada), se usa como respaldo SOLO cuando la cuota gratuita de voz
+    // se agota — así casi todo el uso sigue siendo gratis, y el de pago
+    // solo cubre el excedente ocasional.
+    const claves = [{ key: process.env.GEMINI_API_KEY, etiqueta: 'gratis' }];
+    if (process.env.GEMINI_API_KEY_PAGO) {
+      claves.push({ key: process.env.GEMINI_API_KEY_PAGO, etiqueta: 'pago (respaldo)' });
+    }
+
     let audioBase64 = null;
     let ultimoError = null;
     let ultimoStatus = 500;
 
-    for (const modelo of modelos) {
-      let respuestaGemini;
-      try {
-        respuestaGemini = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                responseModalities: ['AUDIO'],
-                speechConfig: {
-                  voiceConfig: { prebuiltVoiceConfig: { voiceName: voz } }
+    for (const { key, etiqueta } of claves) {
+      if (audioBase64) break;
+
+      for (const modelo of modelos) {
+        let respuestaGemini;
+        try {
+          respuestaGemini = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${key}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  responseModalities: ['AUDIO'],
+                  speechConfig: {
+                    voiceConfig: { prebuiltVoiceConfig: { voiceName: voz } }
+                  }
                 }
-              }
-            })
+              })
+            }
+          );
+        } catch (e) {
+          console.error(`Error de red con el modelo de voz ${modelo} (clave ${etiqueta}):`, e);
+          ultimoError = e.message;
+          continue;
+        }
+
+        const datosIntento = await respuestaGemini.json();
+
+        if (respuestaGemini.ok) {
+          const parte =
+            datosIntento.candidates &&
+            datosIntento.candidates[0] &&
+            datosIntento.candidates[0].content &&
+            datosIntento.candidates[0].content.parts &&
+            datosIntento.candidates[0].content.parts[0];
+          audioBase64 = parte && parte.inlineData && parte.inlineData.data;
+          if (audioBase64) {
+            console.log(`Voz generada con clave "${etiqueta}", modelo ${modelo}`);
+            break;
           }
-        );
-      } catch (e) {
-        console.error(`Error de red con el modelo de voz ${modelo}:`, e);
-        ultimoError = e.message;
-        continue;
-      }
+          ultimoError = 'Gemini no devolvió un audio válido';
+          continue;
+        }
 
-      const datosIntento = await respuestaGemini.json();
+        console.error(`Modelo de voz ${modelo} no disponible con clave "${etiqueta}" (${respuestaGemini.status}):`, JSON.stringify(datosIntento));
+        ultimoError = (datosIntento.error && datosIntento.error.message) || 'Error al generar la voz con Gemini';
+        ultimoStatus = respuestaGemini.status;
 
-      if (respuestaGemini.ok) {
-        const parte =
-          datosIntento.candidates &&
-          datosIntento.candidates[0] &&
-          datosIntento.candidates[0].content &&
-          datosIntento.candidates[0].content.parts &&
-          datosIntento.candidates[0].content.parts[0];
-        audioBase64 = parte && parte.inlineData && parte.inlineData.data;
-        if (audioBase64) break;
-        ultimoError = 'Gemini no devolvió un audio válido';
-        continue;
-      }
-
-      console.error(`Modelo de voz ${modelo} no disponible (${respuestaGemini.status}):`, JSON.stringify(datosIntento));
-      ultimoError = (datosIntento.error && datosIntento.error.message) || 'Error al generar la voz con Gemini';
-      ultimoStatus = respuestaGemini.status;
-
-      // Solo se detiene de inmediato si el error es por la solicitud en sí
-      // (400) o por la clave de API (401/403). Cualquier otro error (voz
-      // saturada, retirada, no encontrada, etc.) pasa al siguiente modelo.
-      if ([400, 401, 403].includes(respuestaGemini.status)) {
-        break;
+        // Solo se detiene de inmediato (sin probar otros modelos de esta
+        // misma clave) si el error es por la solicitud en sí (400) o por
+        // la clave de API (401/403).
+        if ([400, 401, 403].includes(respuestaGemini.status)) {
+          break;
+        }
       }
     }
 
