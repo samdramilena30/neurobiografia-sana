@@ -1,5 +1,4 @@
-
-  // Función serverless de Vercel.
+// Función serverless de Vercel.
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama al
 // modelo de texto a voz de Gemini, usando la MISMA clave (GEMINI_API_KEY) que
 // ya está configurada en Vercel para el chat. No requiere ninguna cuenta ni
@@ -108,9 +107,10 @@ module.exports = async (req, res) => {
       ultimoError = (datosIntento.error && datosIntento.error.message) || 'Error al generar la voz con Gemini';
       ultimoStatus = respuestaGemini.status;
 
-      // Si el error no es por saturación/límite de tasa (429/503), otro
-      // modelo tampoco lo resolvería — se detiene de inmediato.
-      if (![429, 503].includes(respuestaGemini.status)) {
+      // Solo se detiene de inmediato si el error es por la solicitud en sí
+      // (400) o por la clave de API (401/403). Cualquier otro error (voz
+      // saturada, retirada, no encontrada, etc.) pasa al siguiente modelo.
+      if ([400, 401, 403].includes(respuestaGemini.status)) {
         break;
       }
     }
