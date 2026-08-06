@@ -1,4 +1,5 @@
-// Función serverless de Vercel.
+
+      // Función serverless de Vercel.
 // Recibe los mensajes del chat "Habla conmigo" desde el navegador,
 // llama a la API de Gemini (Google AI Studio) con la clave guardada de forma
 // segura en las variables de entorno de Vercel (nunca queda visible en el
@@ -56,14 +57,14 @@ module.exports = async (req, res) => {
       cuerpoSolicitud.systemInstruction = { parts: [{ text: system }] };
     }
 
-    // Lista de modelos a intentar, en orden. Si el primero está saturado
-    // (error 429/503) o falla, se intenta automáticamente con el siguiente,
-    // para que la persona nunca se quede sin respuesta por una sobrecarga
-    // temporal de un solo modelo.
+    // Lista de modelos a intentar, en orden. Si el primero está saturado,
+    // fue retirado por Google, o falla por cualquier otra razón que no sea
+    // un problema de la propia solicitud, se intenta automáticamente con
+    // el siguiente — para que la persona nunca se quede sin respuesta.
     const modelos = [
       process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-      'gemini-2.5-flash',
-      'gemini-2.0-flash'
+      'gemini-2.0-flash',
+      'gemini-flash-latest'
     ];
 
     let datos = null;
@@ -99,10 +100,11 @@ module.exports = async (req, res) => {
       ultimoError = (datosIntento.error && datosIntento.error.message) || 'Error al hablar con la API de Gemini';
       ultimoStatus = respuestaGemini.status;
 
-      // Si el error no es por saturación/límite de tasa (429/503) sino algo
-      // como una solicitud mal formada (400) o clave inválida (401/403),
-      // reintentar con otro modelo no va a ayudar — se detiene de inmediato.
-      if (![429, 503].includes(respuestaGemini.status)) {
+      // Solo se detiene de inmediato si el error es por la solicitud en sí
+      // (400: formato inválido) o por la clave de API (401/403) — eso se
+      // repetiría igual con cualquier modelo. Cualquier otro error (modelo
+      // saturado, retirado, no encontrado, etc.) pasa al siguiente modelo.
+      if ([400, 401, 403].includes(respuestaGemini.status)) {
         break;
       }
     }
