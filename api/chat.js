@@ -1,5 +1,4 @@
-
-      // Función serverless de Vercel.
+// Función serverless de Vercel.
 // Recibe los mensajes del chat "Habla conmigo" desde el navegador,
 // llama a la API de Gemini (Google AI Studio) con la clave guardada de forma
 // segura en las variables de entorno de Vercel (nunca queda visible en el
@@ -57,14 +56,16 @@ module.exports = async (req, res) => {
       cuerpoSolicitud.systemInstruction = { parts: [{ text: system }] };
     }
 
-    // Lista de modelos a intentar, en orden. Si el primero está saturado,
-    // fue retirado por Google, o falla por cualquier otra razón que no sea
-    // un problema de la propia solicitud, se intenta automáticamente con
-    // el siguiente — para que la persona nunca se quede sin respuesta.
+    // Lista de modelos a intentar, en orden. "gemini-2.5-flash-lite" va
+    // primero porque tiene una cuota gratuita diaria mucho más generosa
+    // (~1000-1500 peticiones/día) que los modelos más nuevos como
+    // gemini-3.6-flash (apenas ~20/día en la capa gratuita) — así el chat
+    // no se queda sin respuesta por agotar la cuota del modelo "premium".
+    // Si el primero falla por cualquier razón que no sea la solicitud en
+    // sí, se intenta con el siguiente automáticamente.
     const modelos = [
-      process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-      'gemini-2.0-flash',
-      'gemini-flash-latest'
+      process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
+      'gemini-3.6-flash'
     ];
 
     let datos = null;
