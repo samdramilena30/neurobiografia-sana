@@ -71,6 +71,7 @@ module.exports = async (req, res) => {
     let datos = null;
     let ultimoError = null;
     let ultimoStatus = 500;
+    const intentos = []; // registro de qué pasó con cada modelo, para depurar
 
     for (const modelo of modelos) {
       let respuestaGemini;
@@ -87,6 +88,7 @@ module.exports = async (req, res) => {
       } catch (e) {
         console.error(`Error de red con el modelo ${modelo}:`, e);
         ultimoError = e.message;
+        intentos.push({ modelo, error: 'red: ' + e.message });
         continue;
       }
 
@@ -94,11 +96,14 @@ module.exports = async (req, res) => {
 
       if (respuestaGemini.ok) {
         datos = datosIntento;
+        intentos.push({ modelo, status: 200 });
         break;
       }
 
+      const mensajeError = (datosIntento.error && datosIntento.error.message) || 'Error al hablar con la API de Gemini';
       console.error(`Modelo ${modelo} no disponible (${respuestaGemini.status}):`, JSON.stringify(datosIntento));
-      ultimoError = (datosIntento.error && datosIntento.error.message) || 'Error al hablar con la API de Gemini';
+      intentos.push({ modelo, status: respuestaGemini.status, error: mensajeError });
+      ultimoError = mensajeError;
       ultimoStatus = respuestaGemini.status;
 
       // Solo se detiene de inmediato si el error es por la solicitud en sí
@@ -110,8 +115,15 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Registro completo en los logs de Vercel (Registros/Logs del proyecto),
+    // para poder ver exactamente qué pasó con cada modelo si todos fallan.
+    console.log('Intentos de esta solicitud:', JSON.stringify(intentos));
+
     if (!datos) {
-      res.status(ultimoStatus).json({ error: ultimoError || 'Todos los modelos de Gemini no están disponibles' });
+      res.status(ultimoStatus).json({
+        error: ultimoError || 'Todos los modelos de Gemini no están disponibles',
+        intentos
+      });
       return;
     }
 
