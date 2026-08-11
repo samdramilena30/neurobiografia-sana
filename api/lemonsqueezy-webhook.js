@@ -1,9 +1,16 @@
+
 // Función serverless de Vercel.
 // Lemon Squeezy llama a esta dirección automáticamente cada vez que algo
 // cambia en una suscripción (se crea, se renueva, se cancela, se vence).
 // Aquí verificamos que el aviso sea realmente de Lemon Squeezy (usando la
 // firma secreta), y actualizamos en Supabase si esa persona tiene acceso
 // activo o no.
+//
+// Importante: la persona puede pagar ANTES de crear su cuenta en la app.
+// Por eso, primero guardamos siempre el resultado en una tabla de espera
+// ("pending_subscriptions"), y además intentamos aplicarlo de inmediato
+// si su perfil ya existe. Cuando cree su cuenta más adelante, un
+// disparador en Supabase copiará ese acceso pendiente automáticamente.
 
 const crypto = require('crypto');
 
@@ -96,18 +103,52 @@ module.exports = async (req, res) => {
     const activa = !['expired', 'unpaid'].includes(estado);
     const fechaFin = terminaEl || renuevaEl || null;
 
-    // Actualizar el perfil en Supabase que tenga este correo, usando la
-    // llave de servicio (acceso total, solo se usa aquí en el servidor).
+    const encabezadosSupabase = {
+      'Content-Type': 'application/json',
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      Prefer: 'return=representation'
+    };
+
+    // ── 1) Guardar SIEMPRE el resultado en la tabla de espera ──
+    // Esto es lo que resuelve el caso "pagó antes de crear cuenta".
+    // Si la fila ya existe (mismo correo), se actualiza (upsert).
+    const respuestaPendiente = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/pending_subscriptions?on_conflict=email`,
+      {
+        method: 'POST',
+        headers: {
+          ...encabezadosSupabase,
+          Prefer: 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify({
+          email: correo,
+          suscripcion_activa: activa,
+          suscripcion_fin: fechaFin,
+          lemonsqueezy_customer_id: idCliente,
+          lemonsqueezy_subscription_id: idSuscripcion,
+          actualizado_en: new Date().toISOString()
+        })
+      }
+    );
+
+    if (!respuestaPendiente.ok) {
+      const detalleError = await respuestaPendiente.text().catch(() => '');
+      console.error(
+        'Error guardando en pending_subscriptions:',
+        respuestaPendiente.status,
+        detalleError
+      );
+      // No detenemos el proceso por esto: igual intentamos actualizar
+      // el perfil si ya existe, más abajo.
+    }
+
+    // ── 2) Intentar aplicar de inmediato, si el perfil ya existe ──
     const respuestaSupabase = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(correo)}`,
       {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          Prefer: 'return=representation'
-        },
+        headers: encabezadosSupabase,
         body: JSON.stringify({
           suscripcion_activa: activa,
           suscripcion_fin: fechaFin,
@@ -125,11 +166,18 @@ module.exports = async (req, res) => {
     }
 
     const filasActualizadas = await respuestaSupabase.json();
-    if (!filasActualizadas || filasActualizadas.length === 0) {
-      // No existe todavía un perfil con ese correo — puede pasar si la
-      // persona pagó antes de crear su cuenta en la app, o con un correo
-      // distinto al de su cuenta. Lo registramos para poder revisarlo.
-      console.error(`No se encontró ningún perfil con el correo: ${correo}`);
+
+    if (filasActualizadas && filasActualizadas.length > 0) {
+      // Ya se aplicó directo al perfil — podemos limpiar la fila de espera.
+      await fetch(
+        `${process.env.SUPABASE_URL}/rest/v1/pending_subscriptions?email=eq.${encodeURIComponent(correo)}`,
+        { method: 'DELETE', headers: encabezadosSupabase }
+      ).catch(() => {});
+    } else {
+      // No existe todavía un perfil con ese correo — normal si pagó antes
+      // de crear su cuenta. Queda guardado en pending_subscriptions y se
+      // aplicará solo cuando la persona se registre.
+      console.log(`Sin perfil aún para ${correo}. Guardado en pending_subscriptions.`);
     }
 
     res.status(200).json({ recibido: true, actualizado: filasActualizadas.length > 0 });
