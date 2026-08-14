@@ -121,8 +121,38 @@ module.exports = async (req, res) => {
     }
 
     const filasActualizadas = await respuestaSupabase.json();
+
     if (!filasActualizadas || filasActualizadas.length === 0) {
-      console.error(`No se encontró ningún perfil con el correo: ${correo}`);
+      // No existe todavía un perfil con ese correo — la persona pagó antes
+      // de crear su cuenta en la app. En vez de perder este pago, lo
+      // guardamos en espera: en cuanto cree su cuenta, un disparador en
+      // Supabase lo aplica automáticamente.
+      console.log(`No se encontró perfil con ${correo} — guardando el pago en espera.`);
+
+      const respuestaEspera = await fetch(
+        `${process.env.SUPABASE_URL}/rest/v1/pending_subscriptions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            Prefer: 'return=minimal'
+          },
+          body: JSON.stringify({
+            email: correo,
+            suscripcion_activa: activa,
+            suscripcion_fin: fechaFin,
+            hotmart_subscriber_code: codigoSuscriptor,
+            hotmart_transaction: transaccion
+          })
+        }
+      );
+
+      if (!respuestaEspera.ok) {
+        const detalleError = await respuestaEspera.text().catch(() => '');
+        console.error('Error guardando el pago en espera:', respuestaEspera.status, detalleError);
+      }
     }
 
     res.status(200).json({ recibido: true, actualizado: filasActualizadas.length > 0 });
