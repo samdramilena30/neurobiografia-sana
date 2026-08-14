@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sana-cache-v29';
+const CACHE_NAME = 'sana-cache-v30';
 const ARCHIVOS = [
   './',
   './index.html',
