@@ -73,13 +73,29 @@ module.exports = async (req, res) => {
     let ultimoError = null;
     let ultimoStatus = 500;
 
+    // Cada intento individual (modelo + clave) tiene un límite propio de
+    // tiempo. Así, si uno está lento o saturado, se pasa rápido al
+    // siguiente en vez de quedarse esperando y agotar el tiempo total
+    // que el servidor permite para toda la función.
+    const TIEMPO_LIMITE_POR_INTENTO_MS = 12000;
+
+    async function llamarGeminiConLimite(url, opciones) {
+      const controlador = new AbortController();
+      const temporizador = setTimeout(() => controlador.abort(), TIEMPO_LIMITE_POR_INTENTO_MS);
+      try {
+        return await fetch(url, { ...opciones, signal: controlador.signal });
+      } finally {
+        clearTimeout(temporizador);
+      }
+    }
+
     for (const { key, etiqueta } of claves) {
       if (audioBase64) break;
 
       for (const modelo of modelos) {
         let respuestaGemini;
         try {
-          respuestaGemini = await fetch(
+          respuestaGemini = await llamarGeminiConLimite(
             `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${key}`,
             {
               method: 'POST',
@@ -96,8 +112,11 @@ module.exports = async (req, res) => {
             }
           );
         } catch (e) {
-          console.error(`Error de red con el modelo de voz ${modelo} (clave ${etiqueta}):`, e);
-          ultimoError = e.message;
+          const motivo = e && e.name === 'AbortError'
+            ? `tardó más de ${TIEMPO_LIMITE_POR_INTENTO_MS / 1000}s`
+            : e.message;
+          console.error(`Error con el modelo de voz ${modelo} (clave ${etiqueta}): ${motivo}`);
+          ultimoError = motivo;
           continue;
         }
 
