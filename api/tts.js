@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
     // Nombre de la voz de Gemini a usar. Se puede sobreescribir con la
     // variable de entorno GEMINI_TTS_VOICE en Vercel sin tocar el código.
     // "Kore" es una voz cálida y serena, adecuada para el tono de SANA.
-    const voz = process.env.GEMINI_TTS_VOICE || 'Kore';
+    const voz = process.env.GEMINI_TTS_VOICE || 'Zephyr';
 
     // Limitar longitud para evitar solicitudes excesivamente largas
     const textoFinal = text.trim().slice(0, 2000);
