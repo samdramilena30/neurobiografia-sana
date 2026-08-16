@@ -1,4 +1,4 @@
-// Función serverless de Vercel.
+  // Función serverless de Vercel.
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama al
 // modelo de texto a voz de Gemini, usando la MISMA clave (GEMINI_API_KEY) que
 // ya está configurada en Vercel para el chat. No requiere ninguna cuenta ni
@@ -44,7 +44,13 @@ module.exports = async (req, res) => {
     const voz = process.env.GEMINI_TTS_VOICE || 'Zephyr';
 
     // Limitar longitud para evitar solicitudes excesivamente largas
-    const textoFinal = text.trim().slice(0, 2000);
+    // Antes este límite era de 2000 caracteres, pensado solo para las
+    // respuestas cortas del chat — pero esta misma función también genera
+    // la voz completa de las prácticas guiadas, con guiones reales de
+    // hasta ~6500 caracteres. Un límite bajo aquí corta el audio a mitad
+    // de la práctica sin ningún aviso de error. 8000 cubre con margen los
+    // guiones más largos que tenemos hoy.
+    const textoFinal = text.trim().slice(0, 8000);
 
     // La instrucción de estilo guía el "cómo" sin ser leída en voz alta
     // (el modelo la interpreta como dirección, no como texto a pronunciar).
@@ -193,3 +199,4 @@ function agregarEncabezadoWav(datosPcm, sampleRate, numCanales, bitsPorMuestra) 
 
   return Buffer.concat([encabezado, datosPcm]);
 }
+              
