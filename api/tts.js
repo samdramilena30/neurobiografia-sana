@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
     if (typeof cuerpo === 'string') {
       try { cuerpo = JSON.parse(cuerpo); } catch (e) { cuerpo = {}; }
     }
-    const { text, idioma } = cuerpo || {};
+    const { text, idioma, forzarPago } = cuerpo || {};
 
     if (!text || typeof text !== 'string' || !text.trim()) {
       res.status(400).json({ error: 'Falta el texto a convertir en voz' });
@@ -73,13 +73,19 @@ module.exports = async (req, res) => {
     ];
 
     // Claves a intentar, en orden: primero la gratuita de siempre. Si existe
-    // GEMINI_API_KEY_PAGO (un segundo proyecto de Google con facturación
-    // activada), se usa como respaldo SOLO cuando la cuota gratuita de voz
-    // se agota — así casi todo el uso sigue siendo gratis, y el de pago
-    // solo cubre el excedente ocasional.
-    const claves = [{ key: process.env.GEMINI_API_KEY, etiqueta: 'gratis' }];
-    if (process.env.GEMINI_API_KEY_PAGO) {
-      claves.push({ key: process.env.GEMINI_API_KEY_PAGO, etiqueta: 'pago (respaldo)' });
+    // Normalmente se intenta primero la clave gratis, y la de pago solo
+    // como respaldo. Pero para tareas puntuales de generación masiva (por
+    // ejemplo, crear de una vez los audios de varias prácticas), forzar
+    // el uso directo de la clave de pago evita que muchos reintentos
+    // seguidos saturen la cuota gratuita y la hagan aún más lenta.
+    const claves = [];
+    if (forzarPago && process.env.GEMINI_API_KEY_PAGO) {
+      claves.push({ key: process.env.GEMINI_API_KEY_PAGO, etiqueta: 'pago (forzada)' });
+    } else {
+      claves.push({ key: process.env.GEMINI_API_KEY, etiqueta: 'gratis' });
+      if (process.env.GEMINI_API_KEY_PAGO) {
+        claves.push({ key: process.env.GEMINI_API_KEY_PAGO, etiqueta: 'pago (respaldo)' });
+      }
     }
 
     let audioBase64 = null;
