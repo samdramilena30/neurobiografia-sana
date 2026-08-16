@@ -1,4 +1,4 @@
-  // Función serverless de Vercel.
+// Función serverless de Vercel.
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama al
 // modelo de texto a voz de Gemini, usando la MISMA clave (GEMINI_API_KEY) que
 // ya está configurada en Vercel para el chat. No requiere ninguna cuenta ni
@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
     if (typeof cuerpo === 'string') {
       try { cuerpo = JSON.parse(cuerpo); } catch (e) { cuerpo = {}; }
     }
-    const { text } = cuerpo || {};
+    const { text, idioma } = cuerpo || {};
 
     if (!text || typeof text !== 'string' || !text.trim()) {
       res.status(400).json({ error: 'Falta el texto a convertir en voz' });
@@ -54,7 +54,13 @@ module.exports = async (req, res) => {
 
     // La instrucción de estilo guía el "cómo" sin ser leída en voz alta
     // (el modelo la interpreta como dirección, no como texto a pronunciar).
-    const prompt = `Di lo siguiente en español, con voz cálida, serena y pausada: "${textoFinal}"`;
+    // Antes siempre decía "en español", sin importar el idioma real del
+    // texto — eso hacía que un guion en inglés se leyera mal o se
+    // tradujera de vuelta al español. Ahora se ajusta según el idioma
+    // que indique quien llama a esta función.
+    const prompt = idioma === 'en'
+      ? `Say the following in English, with a warm, calm, unhurried voice: "${textoFinal}"`
+      : `Di lo siguiente en español, con voz cálida, serena y pausada: "${textoFinal}"`;
 
     // Lista de modelos de voz a intentar, en orden. Los modelos "preview"
     // suelen tener límites de uso más estrictos que los modelos estables,
@@ -199,4 +205,3 @@ function agregarEncabezadoWav(datosPcm, sampleRate, numCanales, bitsPorMuestra) 
 
   return Buffer.concat([encabezado, datosPcm]);
 }
-              
