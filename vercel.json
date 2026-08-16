@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/tts.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     }
   },
   "headers": [
