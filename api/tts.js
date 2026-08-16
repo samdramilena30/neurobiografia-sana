@@ -86,10 +86,14 @@ module.exports = async (req, res) => {
     let ultimoStatus = 500;
 
     // Cada intento individual (modelo + clave) tiene un límite propio de
-    // tiempo. Así, si uno está lento o saturado, se pasa rápido al
-    // siguiente en vez de quedarse esperando y agotar el tiempo total
-    // que el servidor permite para toda la función.
-    const TIEMPO_LIMITE_POR_INTENTO_MS = 12000;
+    // tiempo. La generación de voz de Gemini normalmente tarda más de lo
+    // esperado (a veces 15-20s incluso para textos cortos), así que el
+    // límite necesita ser generoso. A cambio, se prueban como máximo 2
+    // combinaciones por llamada (no las 4 posibles), para que la suma
+    // nunca supere el límite total que permite el servidor (60s).
+    const TIEMPO_LIMITE_POR_INTENTO_MS = 25000;
+    const MAX_INTENTOS_POR_LLAMADA = 2;
+    let intentosRealizados = 0;
 
     async function llamarGeminiConLimite(url, opciones) {
       const controlador = new AbortController();
@@ -102,9 +106,11 @@ module.exports = async (req, res) => {
     }
 
     for (const { key, etiqueta } of claves) {
-      if (audioBase64) break;
+      if (audioBase64 || intentosRealizados >= MAX_INTENTOS_POR_LLAMADA) break;
 
       for (const modelo of modelos) {
+        if (intentosRealizados >= MAX_INTENTOS_POR_LLAMADA) break;
+        intentosRealizados++;
         let respuestaGemini;
         try {
           respuestaGemini = await llamarGeminiConLimite(
