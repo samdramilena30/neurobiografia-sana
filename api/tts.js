@@ -87,12 +87,12 @@ module.exports = async (req, res) => {
     let ultimoStatus = 500;
 
     // Cada intento individual (modelo + clave) tiene un límite propio de
-    // tiempo. La generación de voz de Gemini normalmente tarda más de lo
-    // esperado (a veces 15-20s incluso para textos cortos), así que el
-    // límite necesita ser generoso. A cambio, se prueban como máximo 2
-    // combinaciones por llamada (no las 4 posibles), para que la suma
-    // nunca supere el límite total que permite el servidor (60s).
-    const TIEMPO_LIMITE_POR_INTENTO_MS = 25000;
+    // tiempo. La generación de voz de Gemini puede tardar genuinamente
+    // 30-40s o más, así que el límite necesita ser generoso — por eso
+    // también ampliamos el tiempo total permitido para esta función en
+    // vercel.json (120s, usando Fluid Compute). Con 50s por intento y un
+    // máximo de 2 intentos, el peor caso queda en 100s, dentro del margen.
+    const TIEMPO_LIMITE_POR_INTENTO_MS = 50000;
     const MAX_INTENTOS_POR_LLAMADA = 2;
     let intentosRealizados = 0;
 
