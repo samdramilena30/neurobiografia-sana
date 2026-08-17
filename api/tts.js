@@ -62,14 +62,15 @@ module.exports = async (req, res) => {
       ? `Say the following in English, with a warm, calm, unhurried voice: "${textoFinal}"`
       : `Di lo siguiente en español, con voz cálida, serena y pausada: "${textoFinal}"`;
 
-    // Lista de modelos de voz a intentar. Antes incluía también
-    // "gemini-2.5-pro-preview-tts" como respaldo, pero ese modelo tiene
-    // cuota gratuita de 0 (confirmado por Google), así que probarlo con
-    // la clave gratis siempre falla — solo desperdiciaba uno de los pocos
-    // intentos permitidos por llamada. Se puede seguir cambiando el
-    // modelo principal con la variable GEMINI_TTS_MODEL si hiciera falta.
+    // Lista de modelos de voz a intentar. Antes usábamos
+    // "gemini-2.5-flash-preview-tts" (experimental, con cuota diaria muy
+    // baja incluso pagando). Google ya graduó una versión estable de este
+    // mismo modelo — "gemini-2.5-flash-tts" (sin "preview") — en
+    // disponibilidad general, con la misma voz Zephyr disponible y cuota
+    // mucho más generosa. Se puede seguir cambiando el modelo principal
+    // con la variable GEMINI_TTS_MODEL si hiciera falta.
     const modelos = [
-      process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts'
+      process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-tts'
     ];
 
     // Claves a intentar, en orden: primero la gratuita de siempre. Si existe
