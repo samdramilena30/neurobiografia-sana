@@ -1,6 +1,6 @@
 // Función serverless de Vercel.
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
-// Google Cloud Text-to-Speech (voz Chirp3-HD "Zephyr"), usando la cuenta de
+// Google Cloud Text-to-Speech (voz Chirp3-HD "Aoede"), usando la cuenta de
 // servicio configurada en GOOGLE_TTS_CREDENTIALS. Devuelve un audio WAV que
 // el navegador reproduce directamente.
 
@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const codigoIdioma = idioma === 'en' ? 'en-US' : 'es-US';
-    const nombreVoz = `${codigoIdioma}-Chirp3-HD-Zephyr`;
+    const nombreVoz = `${codigoIdioma}-Chirp3-HD-Aoede`;
 
     let credenciales;
     try {
