@@ -43,8 +43,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English, with a warm, calm, unhurried voice: "${textoFinal}"`
-      : `Di lo siguiente en español, con voz cálida, serena y pausada: "${textoFinal}"`;
+      ? `Say the following in English in a slow, gentle, melodic voice, like a soft lullaby of reflection — deeply calm, unhurried, with soothing warmth in every word: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz lenta, suave y melódica, como una reflexión en calma profunda — sin prisa, con un tono envolvente y cálido en cada palabra: "${textoFinal}"`;
 
     const modelos = [
       process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts'
