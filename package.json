@@ -1,5 +1,8 @@
 {
   "name": "neurobiografia-sana",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@google-cloud/text-to-speech": "^5.0.0"
+  }
 }
