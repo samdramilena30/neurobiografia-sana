@@ -56,7 +56,7 @@ module.exports = async (req, res) => {
     const [respuesta] = await cliente.synthesizeSpeech({
       input: { text: textoFinal },
       voice: { languageCode: codigoIdioma, name: nombreVoz },
-      audioConfig: { audioEncoding: 'LINEAR16' }
+      audioConfig: { audioEncoding: 'LINEAR16', speakingRate: 0.85 }
     });
 
     if (!respuesta || !respuesta.audioContent) {
