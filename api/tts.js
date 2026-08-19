@@ -2,9 +2,9 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. Se usa temperature baja para que el modelo siga
-// la instrucción de estilo de forma más literal y consistente, en vez de
-// parafrasear o "actuar" el texto de forma libre.
+// GOOGLE_TTS_CREDENTIALS. El prompt evita palabras como "lenta" o "sin prisa"
+// porque en este canal el modelo las toma muy literalmente (efecto "cámara
+// lenta"); se usa temperature moderada para un resultado más natural.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -47,8 +47,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English in a slow, gentle, melodic voice, like a soft lullaby of reflection — deeply calm, unhurried, with soothing warmth in every word: "${textoFinal}"`
-      : `Di lo siguiente en español con una voz lenta, suave y melódica, como una reflexión en calma profunda — sin prisa, con un tono envolvente y cálido en cada palabra: "${textoFinal}"`;
+      ? `Say the following in English in a warm, gentle, melodic voice — calm and soothing, like a comforting reflection: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz cálida, suave y melódica — serena y envolvente, como una reflexión reconfortante: "${textoFinal}"`;
 
     let credenciales;
     try {
@@ -77,7 +77,7 @@ module.exports = async (req, res) => {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           responseModalities: ['AUDIO'],
-          temperature: 0.3,
+          temperature: 0.5,
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
           }
