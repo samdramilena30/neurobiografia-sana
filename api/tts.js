@@ -2,10 +2,11 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. El prompt busca una voz MUY grave, de cuerpo pleno
-// y resonancia profunda, dulce y sabia (como una mujer mayor querida
-// compartiendo sabiduría con ternura), casi susurrada, sin proyectar,
-// íntima y serena — con respiración y pausas tras cada idea importante.
+// GOOGLE_TTS_CREDENTIALS. El prompt se basa en un análisis técnico real de
+// la voz de referencia: registro medio-agudo con emisión aireada y
+// resonancia pectoral (no gravedad de tono), tonalidad maternal/empática,
+// entonación descendente al final de cada frase, y cadencia pausada con
+// respiraciones audibles entre frases.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -48,8 +49,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English almost in a whisper, in a very low, deep, full-bodied voice with rich resonance — sweet and wise, like a beloved elder woman sharing gentle wisdom, wrapping the listener completely in warmth, close and unprojected, glowing softly with serenity — breathe tenderly between phrases, pausing briefly after each important thought: "${textoFinal}"`
-      : `Di lo siguiente en español casi en un susurro, con una voz muy grave, de cuerpo pleno y resonancia profunda — dulce y sabia, como una mujer mayor querida que comparte su sabiduría con ternura, envolviendo por completo a quien escucha en calidez, cercana y sin proyectar, brillando suavemente con serenidad — respira con delicadeza entre frases, haciendo una breve pausa después de cada idea importante: "${textoFinal}"`;
+      ? `Say the following in English with a soft, breathy, airy voice, warmed by gentle chest resonance rather than depth of pitch — maternal, empathetic, reflective, with a falling, settling intonation at the end of each phrase. Speak unhurriedly, with spacious pauses and audible tender breaths between phrases, as if guiding someone to release tension: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz suave y aireada, casi susurrada, cálida por su resonancia pectoral más que por gravedad de tono — maternal, empática, reflexiva, con una entonación descendente que se asienta al final de cada frase. Habla sin prisa, con pausas amplias y respiraciones tiernas y audibles entre frases, como guiando a alguien a soltar tensión: "${textoFinal}"`;
 
     let credenciales;
     try {
