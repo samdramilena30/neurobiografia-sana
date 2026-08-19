@@ -1,10 +1,15 @@
 // Función serverless de Vercel.
-// Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama al
-// modelo de texto a voz de Gemini, usando la MISMA clave (GEMINI_API_KEY) que
-// ya está configurada en Vercel para el chat. No requiere ninguna cuenta ni
-// clave nueva. Devuelve un audio WAV que el navegador reproduce directamente
-// — así la voz es siempre la misma, cálida y natural, sin depender del
-// sintetizador de voz de cada celular.
+// Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
+// Gemini TTS a través de Vertex AI (gemini-2.5-flash-lite-tts, región
+// us-central1), usando la cuenta de servicio configurada en
+// GOOGLE_TTS_CREDENTIALS. Devuelve un audio WAV que el navegador reproduce
+// directamente.
+
+const { GoogleAuth } = require('google-auth-library');
+
+const PROYECTO = 'gen-lang-client-0888965075';
+const REGION = 'us-central1';
+const MODELO = 'gemini-2.5-flash-lite-tts';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,19 +31,17 @@ module.exports = async (req, res) => {
     if (typeof cuerpo === 'string') {
       try { cuerpo = JSON.parse(cuerpo); } catch (e) { cuerpo = {}; }
     }
-    const { text, idioma, forzarPago } = cuerpo || {};
+    const { text, idioma } = cuerpo || {};
 
     if (!text || typeof text !== 'string' || !text.trim()) {
       res.status(400).json({ error: 'Falta el texto a convertir en voz' });
       return;
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en Vercel' });
+    if (!process.env.GOOGLE_TTS_CREDENTIALS) {
+      res.status(500).json({ error: 'Falta configurar GOOGLE_TTS_CREDENTIALS en Vercel' });
       return;
     }
-
-    const voz = process.env.GEMINI_TTS_VOICE || 'Zephyr';
 
     const textoFinal = text.trim().slice(0, 8000);
 
@@ -46,101 +49,53 @@ module.exports = async (req, res) => {
       ? `Say the following in English in a slow, gentle, melodic voice, like a soft lullaby of reflection — deeply calm, unhurried, with soothing warmth in every word: "${textoFinal}"`
       : `Di lo siguiente en español con una voz lenta, suave y melódica, como una reflexión en calma profunda — sin prisa, con un tono envolvente y cálido en cada palabra: "${textoFinal}"`;
 
-    const modelos = [
-      process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts'
-    ];
-
-    const claves = [];
-    if (forzarPago && process.env.GEMINI_API_KEY_PAGO) {
-      claves.push({ key: process.env.GEMINI_API_KEY_PAGO, etiqueta: 'pago (forzada)' });
-    } else {
-      claves.push({ key: process.env.GEMINI_API_KEY, etiqueta: 'gratis' });
-      if (process.env.GEMINI_API_KEY_PAGO) {
-        claves.push({ key: process.env.GEMINI_API_KEY_PAGO, etiqueta: 'pago (respaldo)' });
-      }
+    let credenciales;
+    try {
+      credenciales = JSON.parse(process.env.GOOGLE_TTS_CREDENTIALS);
+    } catch (e) {
+      res.status(500).json({ error: 'GOOGLE_TTS_CREDENTIALS no es un JSON válido' });
+      return;
     }
 
-    let audioBase64 = null;
-    let ultimoError = null;
-    let ultimoStatus = 500;
+    const auth = new GoogleAuth({
+      credentials: credenciales,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
+    const cliente = await auth.getClient();
+    const token = await cliente.getAccessToken();
 
-    const TIEMPO_LIMITE_POR_INTENTO_MS = 50000;
-    const MAX_INTENTOS_POR_LLAMADA = 2;
-    let intentosRealizados = 0;
+    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:generateContent`;
 
-    async function llamarGeminiConLimite(url, opciones) {
-      const controlador = new AbortController();
-      const temporizador = setTimeout(() => controlador.abort(), TIEMPO_LIMITE_POR_INTENTO_MS);
-      try {
-        return await fetch(url, { ...opciones, signal: controlador.signal });
-      } finally {
-        clearTimeout(temporizador);
-      }
-    }
-
-    for (const { key, etiqueta } of claves) {
-      if (audioBase64 || intentosRealizados >= MAX_INTENTOS_POR_LLAMADA) break;
-
-      for (const modelo of modelos) {
-        if (intentosRealizados >= MAX_INTENTOS_POR_LLAMADA) break;
-        intentosRealizados++;
-        let respuestaGemini;
-        try {
-          respuestaGemini = await llamarGeminiConLimite(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${key}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                  responseModalities: ['AUDIO'],
-                  speechConfig: {
-                    voiceConfig: { prebuiltVoiceConfig: { voiceName: voz } }
-                  }
-                }
-              })
-            }
-          );
-        } catch (e) {
-          const motivo = e && e.name === 'AbortError'
-            ? `tardó más de ${TIEMPO_LIMITE_POR_INTENTO_MS / 1000}s`
-            : e.message;
-          console.error(`Error con el modelo de voz ${modelo} (clave ${etiqueta}): ${motivo}`);
-          ultimoError = motivo;
-          continue;
-        }
-
-        const datosIntento = await respuestaGemini.json();
-
-        if (respuestaGemini.ok) {
-          const parte =
-            datosIntento.candidates &&
-            datosIntento.candidates[0] &&
-            datosIntento.candidates[0].content &&
-            datosIntento.candidates[0].content.parts &&
-            datosIntento.candidates[0].content.parts[0];
-          audioBase64 = parte && parte.inlineData && parte.inlineData.data;
-          if (audioBase64) {
-            console.log(`Voz generada con clave "${etiqueta}", modelo ${modelo}`);
-            break;
+    const respuestaVertex = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
           }
-          ultimoError = 'Gemini no devolvió un audio válido';
-          continue;
         }
+      })
+    });
 
-        console.error(`Modelo de voz ${modelo} no disponible con clave "${etiqueta}" (${respuestaGemini.status}):`, JSON.stringify(datosIntento));
-        ultimoError = (datosIntento.error && datosIntento.error.message) || 'Error al generar la voz con Gemini';
-        ultimoStatus = respuestaGemini.status;
+    const datos = await respuestaVertex.json();
 
-        if ([400, 401, 403].includes(respuestaGemini.status)) {
-          break;
-        }
-      }
+    if (!respuestaVertex.ok) {
+      console.error('Error de Vertex AI:', JSON.stringify(datos));
+      res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al generar la voz con Vertex AI' });
+      return;
     }
+
+    const parte = datos.candidates && datos.candidates[0] && datos.candidates[0].content && datos.candidates[0].content.parts && datos.candidates[0].content.parts[0];
+    const audioBase64 = parte && parte.inlineData && parte.inlineData.data;
 
     if (!audioBase64) {
-      res.status(ultimoStatus).json({ error: ultimoError || 'No se pudo generar la voz con ningún modelo disponible' });
+      res.status(500).json({ error: 'Vertex AI no devolvió un audio válido' });
       return;
     }
 
@@ -159,7 +114,6 @@ function agregarEncabezadoWav(datosPcm, sampleRate, numCanales, bitsPorMuestra) 
   const bloqueAlineado = (numCanales * bitsPorMuestra) / 8;
   const tasaBytes = sampleRate * bloqueAlineado;
   const encabezado = Buffer.alloc(44);
-
   encabezado.write('RIFF', 0);
   encabezado.writeUInt32LE(36 + datosPcm.length, 4);
   encabezado.write('WAVE', 8);
@@ -173,6 +127,5 @@ function agregarEncabezadoWav(datosPcm, sampleRate, numCanales, bitsPorMuestra) 
   encabezado.writeUInt16LE(bitsPorMuestra, 34);
   encabezado.write('data', 36);
   encabezado.writeUInt32LE(datosPcm.length, 40);
-
   return Buffer.concat([encabezado, datosPcm]);
 }
