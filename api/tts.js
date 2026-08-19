@@ -3,8 +3,9 @@
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
 // GOOGLE_TTS_CREDENTIALS. El prompt evita palabras como "lenta" o "sin prisa"
-// porque en este canal el modelo las toma muy literalmente (efecto "cámara
-// lenta"); se usa temperature moderada para un resultado más natural.
+// (causaban efecto "cámara lenta" en este canal) y en su lugar usa una
+// imagen relacional concreta (hablarle con cariño a una amiga querida) para
+// lograr calidez y dulzura sin distorsionar el ritmo del habla.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -47,8 +48,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English in a warm, gentle, melodic voice — calm and soothing, like a comforting reflection: "${textoFinal}"`
-      : `Di lo siguiente en español con una voz cálida, suave y melódica — serena y envolvente, como una reflexión reconfortante: "${textoFinal}"`;
+      ? `Say the following in English in a warm, tender voice, like someone speaking gently to a dear friend — soothing, nurturing, wrapped in genuine care: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz cálida y tierna, como alguien que habla con cariño genuino a una amiga querida — reconfortante, nutritiva, envolvente en cada palabra: "${textoFinal}"`;
 
     let credenciales;
     try {
