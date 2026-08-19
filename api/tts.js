@@ -2,10 +2,10 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. El prompt evita palabras de ritmo sueltas como
-// "lenta" (causaban efecto "cámara lenta" en este canal); en su lugar ancla
-// el ritmo pausado a un rol concreto (terapeuta compasiva) para lograr
-// solemnidad y calidez envolvente sin distorsionar el habla.
+// GOOGLE_TTS_CREDENTIALS. El prompt busca una voz grave, íntima, tipo
+// arrullo, con respiración y pausas después de cada idea importante — en
+// vez de instrucciones de ritmo general (que causaban efecto "cámara
+// lenta" en este canal).
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -48,8 +48,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English with the solemn, grounded pace of a compassionate therapist guiding someone gently through a difficult moment — sweet, serene, wrapping the listener in warmth and safety with every measured word: "${textoFinal}"`
-      : `Di lo siguiente en español con el ritmo pausado y solemne de una terapeuta compasiva guiando a alguien con delicadeza en un momento difícil — dulce, serena, envolviendo a quien escucha en calidez y seguridad con cada palabra medida: "${textoFinal}"`;
+      ? `Say the following in English in a low, intimate voice, close to the listener's ear, like a soft lullaby — breathe gently between phrases, pausing briefly after each important thought, deeply grounded and soothing: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz grave e íntima, muy cerca del oído de quien escucha, como un arrullo suave — respira con delicadeza entre frases, haciendo una breve pausa después de cada idea importante, profundamente serena y reconfortante: "${textoFinal}"`;
 
     let credenciales;
     try {
