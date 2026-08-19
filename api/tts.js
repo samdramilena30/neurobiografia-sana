@@ -3,8 +3,9 @@
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
 // GOOGLE_TTS_CREDENTIALS. El prompt busca una voz grave, de cuerpo pleno y
-// resonancia profunda, casi susurrada, sin proyectar, íntima y serena con un
-// brillo suave — con respiración y pausas tras cada idea importante
+// resonancia profunda, dulce y sabia (como una mujer mayor querida
+// compartiendo sabiduría con ternura), casi susurrada, sin proyectar,
+// íntima y serena — con respiración y pausas tras cada idea importante
 // (evitando instrucciones de ritmo general que causaban efecto "cámara
 // lenta" en este canal).
 
@@ -49,8 +50,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English almost in a whisper, in a deep, full-bodied voice with rich resonance, close and unprojected, like a gentle lullaby glowing softly with serenity — breathe tenderly between phrases, pausing briefly after each important thought: "${textoFinal}"`
-      : `Di lo siguiente en español casi en un susurro, con una voz grave, de cuerpo pleno y resonancia profunda, cercana y sin proyectar, como un arrullo tierno que brilla suavemente con serenidad — respira con delicadeza entre frases, haciendo una breve pausa después de cada idea importante: "${textoFinal}"`;
+      ? `Say the following in English almost in a whisper, in a deep, full-bodied voice with rich resonance — sweet and wise, like a beloved elder woman sharing gentle wisdom, wrapping the listener completely in warmth, close and unprojected, glowing softly with serenity — breathe tenderly between phrases, pausing briefly after each important thought: "${textoFinal}"`
+      : `Di lo siguiente en español casi en un susurro, con una voz grave, de cuerpo pleno y resonancia profunda — dulce y sabia, como una mujer mayor querida que comparte su sabiduría con ternura, envolviendo por completo a quien escucha en calidez, cercana y sin proyectar, brillando suavemente con serenidad — respira con delicadeza entre frases, haciendo una breve pausa después de cada idea importante: "${textoFinal}"`;
 
     let credenciales;
     try {
