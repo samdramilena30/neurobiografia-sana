@@ -2,10 +2,10 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. El prompt evita palabras de ritmo como "lenta" o
-// "sin prisa" (causaban efecto "cámara lenta" en este canal) y usa imágenes
-// sensoriales concretas (abrazo cálido, consolar a alguien que amas) para
-// lograr dulzura, serenidad y calidez envolvente sin distorsionar el ritmo.
+// GOOGLE_TTS_CREDENTIALS. El prompt evita palabras de ritmo sueltas como
+// "lenta" (causaban efecto "cámara lenta" en este canal); en su lugar ancla
+// el ritmo pausado a un rol concreto (terapeuta compasiva) para lograr
+// solemnidad y calidez envolvente sin distorsionar el habla.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -48,8 +48,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English with a sweet, serene voice that wraps around the listener like a warm embrace — tender, soothing, deeply peaceful, as if comforting someone you love: "${textoFinal}"`
-      : `Di lo siguiente en español con una voz dulce y serena que envuelve a quien escucha como un abrazo cálido — tierna, reconfortante, profundamente en paz, como si consolaras a alguien que amas: "${textoFinal}"`;
+      ? `Say the following in English with the solemn, grounded pace of a compassionate therapist guiding someone gently through a difficult moment — sweet, serene, wrapping the listener in warmth and safety with every measured word: "${textoFinal}"`
+      : `Di lo siguiente en español con el ritmo pausado y solemne de una terapeuta compasiva guiando a alguien con delicadeza en un momento difícil — dulce, serena, envolviendo a quien escucha en calidez y seguridad con cada palabra medida: "${textoFinal}"`;
 
     let credenciales;
     try {
@@ -78,7 +78,7 @@ module.exports = async (req, res) => {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           responseModalities: ['AUDIO'],
-          temperature: 0.5,
+          temperature: 0.4,
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
           }
