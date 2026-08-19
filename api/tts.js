@@ -1,6 +1,6 @@
 // Función serverless de Vercel.
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
-// Gemini TTS a través de Vertex AI (gemini-2.5-flash-lite-tts, región
+// Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, región
 // us-central1), usando la cuenta de servicio configurada en
 // GOOGLE_TTS_CREDENTIALS. Devuelve un audio WAV que el navegador reproduce
 // directamente.
@@ -9,7 +9,7 @@ const { GoogleAuth } = require('google-auth-library');
 
 const PROYECTO = 'gen-lang-client-0888965075';
 const REGION = 'us-central1';
-const MODELO = 'gemini-2.5-flash-lite-tts';
+const MODELO = 'gemini-2.5-flash-tts';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
