@@ -2,10 +2,10 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. Prompt anclado en una imagen de edad/carácter
-// (mujer sabia y aterrizada de unos 55 años, no joven ni brillante) en vez
-// de términos técnicos de resonancia/garganta, que habían desviado el
-// resultado hacia efectos no deseados (recitado, neutro, admirado).
+// GOOGLE_TTS_CREDENTIALS. Prompt que combina el punto de partida de 9/10
+// (resonancia pectoral, aliento cálido, entonación descendente) con una
+// imagen de edad/carácter (mujer sabia y aterrizada de 55 años) para
+// reforzar la madurez sin perder el peso y la respiración ya logrados.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -48,8 +48,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English with the voice of a grounded, wise woman in her fifties — not young or bright, but mature, deep, and settled, carrying the weight of lived experience. Warm, reflective, maternal, empathetic, speaking in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
-      : `Di lo siguiente en español con la voz de una mujer sabia y aterrizada de unos 55 años — no joven ni brillante, sino madura, profunda y asentada, cargando el peso de la experiencia vivida. Cálida, reflexiva, maternal, empática, hablando con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
+      ? `Say the following in English with the voice of a grounded, wise woman in her fifties — mature, deep, and settled, carrying the weight of lived experience, with a deep, full chest resonance giving it real body and gravity, softened by a warm breath that lingers gently in every word. Warm, reflective, maternal, empathetic, with a falling, settling intonation at the end of each phrase, speaking in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
+      : `Di lo siguiente en español con la voz de una mujer sabia y aterrizada de unos 55 años — madura, profunda y asentada, cargando el peso de la experiencia vivida, con una resonancia pectoral profunda y plena que le da verdadero cuerpo y gravedad, suavizada por un aliento cálido que se percibe con delicadeza en cada palabra. Cálida, reflexiva, maternal, empática, con una entonación descendente que se asienta al final de cada frase, hablando con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
 
     let credenciales;
     try {
