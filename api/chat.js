@@ -1,13 +1,17 @@
 // Función serverless de Vercel.
-// Recibe los mensajes del chat "Habla conmigo" desde el navegador,
-// llama a la API de Gemini (Google AI Studio) con la clave guardada de forma
-// segura en las variables de entorno de Vercel (nunca queda visible en el
-// código ni en el navegador del usuario), y devuelve la respuesta en el
-// mismo formato que ya espera el frontend.
+// Recibe los mensajes del chat "Habla conmigo" y llama a Gemini a través de
+// Vertex AI (gemini-2.5-flash, GA, región us-central1), usando la misma
+// cuenta de servicio empresarial que ya usa tts.js (GOOGLE_TTS_CREDENTIALS).
+// Esto reemplaza el uso anterior de la API pública de AI Studio, cuya cuota
+// gratuita se agotaba con facilidad durante las pruebas.
+
+const { GoogleAuth } = require('google-auth-library');
+
+const PROYECTO = 'gen-lang-client-0888965075';
+const REGION = 'us-central1';
+const MODELO = 'gemini-2.5-flash';
 
 module.exports = async (req, res) => {
-  // Permitir llamadas desde cualquier origen (útil si el sitio estático
-  // vive en un dominio distinto al de esta función).
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -34,12 +38,11 @@ module.exports = async (req, res) => {
       return;
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en Vercel' });
+    if (!process.env.GOOGLE_TTS_CREDENTIALS) {
+      res.status(500).json({ error: 'Falta configurar GOOGLE_TTS_CREDENTIALS en Vercel' });
       return;
     }
 
-    // Convertir el historial al formato que espera Gemini
     const contenidoGemini = messages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }]
@@ -48,82 +51,44 @@ module.exports = async (req, res) => {
     const cuerpoSolicitud = {
       contents: contenidoGemini,
       generationConfig: {
-        maxOutputTokens: 2048,
-        thinkingConfig: { thinkingLevel: 'low' }
+        maxOutputTokens: 2048
       }
     };
     if (system) {
-      cuerpoSolicitud.systemInstruction = { parts: [{ text: system }] };
+      cuerpoSolicitud.systemInstruction = { role: 'system', parts: [{ text: system }] };
     }
 
-    // Lista de modelos a intentar, en orden. "gemini-2.5-flash-lite" va
-    // primero porque tiene una cuota gratuita diaria mucho más generosa
-    // (~1000-1500 peticiones/día) que los modelos más nuevos como
-    // gemini-3.6-flash (apenas ~20/día en la capa gratuita) — así el chat
-    // no se queda sin respuesta por agotar la cuota del modelo "premium".
-    // Si el primero falla por cualquier razón que no sea la solicitud en
-    // sí, se intenta con el siguiente automáticamente.
-    const modelos = [
-      process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
-      'gemini-3.6-flash'
-    ];
-
-    let datos = null;
-    let ultimoError = null;
-    let ultimoStatus = 500;
-    const intentos = []; // registro de qué pasó con cada modelo, para depurar
-
-    for (const modelo of modelos) {
-      let respuestaGemini;
-      try {
-        respuestaGemini = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=` +
-            process.env.GEMINI_API_KEY,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cuerpoSolicitud)
-          }
-        );
-      } catch (e) {
-        console.error(`Error de red con el modelo ${modelo}:`, e);
-        ultimoError = e.message;
-        intentos.push({ modelo, error: 'red: ' + e.message });
-        continue;
-      }
-
-      const datosIntento = await respuestaGemini.json();
-
-      if (respuestaGemini.ok) {
-        datos = datosIntento;
-        intentos.push({ modelo, status: 200 });
-        break;
-      }
-
-      const mensajeError = (datosIntento.error && datosIntento.error.message) || 'Error al hablar con la API de Gemini';
-      console.error(`Modelo ${modelo} no disponible (${respuestaGemini.status}):`, JSON.stringify(datosIntento));
-      intentos.push({ modelo, status: respuestaGemini.status, error: mensajeError });
-      ultimoError = mensajeError;
-      ultimoStatus = respuestaGemini.status;
-
-      // Solo se detiene de inmediato si el error es por la solicitud en sí
-      // (400: formato inválido) o por la clave de API (401/403) — eso se
-      // repetiría igual con cualquier modelo. Cualquier otro error (modelo
-      // saturado, retirado, no encontrado, etc.) pasa al siguiente modelo.
-      if ([400, 401, 403].includes(respuestaGemini.status)) {
-        break;
-      }
+    let credenciales;
+    try {
+      credenciales = JSON.parse(process.env.GOOGLE_TTS_CREDENTIALS);
+    } catch (e) {
+      res.status(500).json({ error: 'GOOGLE_TTS_CREDENTIALS no es un JSON válido' });
+      return;
     }
 
-    // Registro completo en los logs de Vercel (Registros/Logs del proyecto),
-    // para poder ver exactamente qué pasó con cada modelo si todos fallan.
-    console.log('Intentos de esta solicitud:', JSON.stringify(intentos));
+    const auth = new GoogleAuth({
+      credentials: credenciales,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
+    const cliente = await auth.getClient();
+    const token = await cliente.getAccessToken();
 
-    if (!datos) {
-      res.status(ultimoStatus).json({
-        error: ultimoError || 'Todos los modelos de Gemini no están disponibles',
-        intentos
-      });
+    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:generateContent`;
+
+    const respuestaVertex = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(cuerpoSolicitud)
+    });
+
+    const datos = await respuestaVertex.json();
+
+    if (!respuestaVertex.ok) {
+      console.error('Error de Vertex AI (chat):', JSON.stringify(datos));
+      res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al hablar con Vertex AI' });
       return;
     }
 
@@ -136,16 +101,14 @@ module.exports = async (req, res) => {
       datos.candidates[0].content.parts[0].text;
 
     if (!texto) {
-      console.error('Respuesta de Gemini sin texto:', JSON.stringify(datos));
-      res.status(500).json({ error: 'Gemini no devolvió una respuesta válida' });
+      console.error('Respuesta de Vertex AI sin texto:', JSON.stringify(datos));
+      res.status(500).json({ error: 'Vertex AI no devolvió una respuesta válida' });
       return;
     }
 
-    // Devolver en el mismo formato que ya espera el frontend (data.content[0].text)
     res.status(200).json({ content: [{ text: texto }] });
   } catch (error) {
     console.error('Error en la función chat.js:', error);
     res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
   }
 };
-
