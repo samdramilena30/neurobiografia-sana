@@ -2,11 +2,10 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. Prompt afinado con análisis técnico comparativo
-// contra la voz de referencia ("Audio 1"): más apoyo diafragmático/pecho,
-// menos aire (breathiness), flujo legato entre frases sin cortes marcados,
-// y proyección de firmeza amorosa ("sostener desde el centro") en vez de
-// modulación susurrada/etérea.
+// GOOGLE_TTS_CREDENTIALS. Prompt confirmado con 7/10 de similitud a la voz
+// de referencia de SANA (Audio 1): resonancia pectoral profunda y plena,
+// natural, reflexiva, maternal, empática, entonación descendente, ritmo
+// fluido y pausado. Punto de partida estable para seguir iterando.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -49,8 +48,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English with a voice firmly supported from the diaphragm and chest, full and solid rather than airy — warm, reflective, maternal, empathetic, holding steady presence like a constant embrace rather than a whisper. Let the phrases flow together in a continuous, legato line without cutting the intonation sharply at the end of each clause, speaking with grounded, loving firmness rather than soft delicacy: "${textoFinal}"`
-      : `Di lo siguiente en español con una voz apoyada con firmeza desde el diafragma y el pecho, plena y sólida en vez de aireada — cálida, reflexiva, maternal, empática, sosteniendo una presencia constante como un abrazo continuo, no como un susurro. Deja que las frases fluyan encadenadas en una línea continua tipo legato, sin cortar la entonación de forma marcada al final de cada cláusula, hablando con firmeza amorosa que sostiene desde el centro, más que con delicadeza suave: "${textoFinal}"`;
+      ? `Say the following in English in a natural spoken voice, with a deep, full chest resonance giving it real body and gravity — reflective, maternal, empathetic, with a falling, settling intonation at the end of each phrase. Speak in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz hablada natural, con una resonancia pectoral profunda y plena que le da verdadero cuerpo y gravedad — reflexiva, maternal, empática, con una entonación descendente que se asienta al final de cada frase. Habla con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
 
     let credenciales;
     try {
