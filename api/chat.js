@@ -1,15 +1,15 @@
 // Función serverless de Vercel.
-// Recibe los mensajes del chat "Habla conmigo" y llama a Gemini a través de
-// Vertex AI (gemini-2.5-flash, GA, región us-central1), usando la misma
-// cuenta de servicio empresarial que ya usa tts.js (GOOGLE_TTS_CREDENTIALS).
-// Esto reemplaza el uso anterior de la API pública de AI Studio, cuya cuota
-// gratuita se agotaba con facilidad durante las pruebas.
+// Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
+// Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
+// us-central1), usando la cuenta de servicio configurada en
+// GOOGLE_TTS_CREDENTIALS. Prompt confirmado en 9/10 de similitud con la voz
+// de referencia de SANA (Audio 1) — el mejor resultado hasta ahora.
 
 const { GoogleAuth } = require('google-auth-library');
 
 const PROYECTO = 'gen-lang-client-0888965075';
 const REGION = 'us-central1';
-const MODELO = 'gemini-2.5-flash';
+const MODELO = 'gemini-2.5-flash-tts';
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -31,10 +31,10 @@ module.exports = async (req, res) => {
     if (typeof cuerpo === 'string') {
       try { cuerpo = JSON.parse(cuerpo); } catch (e) { cuerpo = {}; }
     }
-    const { messages, system } = cuerpo || {};
+    const { text, idioma } = cuerpo || {};
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      res.status(400).json({ error: 'Faltan mensajes' });
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      res.status(400).json({ error: 'Falta el texto a convertir en voz' });
       return;
     }
 
@@ -43,20 +43,11 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const contenidoGemini = messages.map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }));
+    const textoFinal = text.trim().slice(0, 8000);
 
-    const cuerpoSolicitud = {
-      contents: contenidoGemini,
-      generationConfig: {
-        maxOutputTokens: 2048
-      }
-    };
-    if (system) {
-      cuerpoSolicitud.systemInstruction = { role: 'system', parts: [{ text: system }] };
-    }
+    const prompt = idioma === 'en'
+      ? `Say the following in English in a natural spoken voice, with a deep, full chest resonance giving it real body and gravity, softened by a warm breath that lingers gently in every word — reflective, maternal, empathetic, with a falling, settling intonation at the end of each phrase. Speak in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz hablada natural, con una resonancia pectoral profunda y plena que le da verdadero cuerpo y gravedad, suavizada por un aliento cálido que se percibe con delicadeza en cada palabra — reflexiva, maternal, empática, con una entonación descendente que se asienta al final de cada frase. Habla con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
 
     let credenciales;
     try {
@@ -81,34 +72,61 @@ module.exports = async (req, res) => {
         'Authorization': `Bearer ${token.token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(cuerpoSolicitud)
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          temperature: 0.4,
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
+          }
+        }
+      })
     });
 
     const datos = await respuestaVertex.json();
 
     if (!respuestaVertex.ok) {
-      console.error('Error de Vertex AI (chat):', JSON.stringify(datos));
-      res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al hablar con Vertex AI' });
+      console.error('Error de Vertex AI:', JSON.stringify(datos));
+      res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al generar la voz con Vertex AI' });
       return;
     }
 
-    const texto =
-      datos.candidates &&
-      datos.candidates[0] &&
-      datos.candidates[0].content &&
-      datos.candidates[0].content.parts &&
-      datos.candidates[0].content.parts[0] &&
-      datos.candidates[0].content.parts[0].text;
+    const parte = datos.candidates && datos.candidates[0] && datos.candidates[0].content && datos.candidates[0].content.parts && datos.candidates[0].content.parts[0];
+    const audioBase64 = parte && parte.inlineData && parte.inlineData.data;
 
-    if (!texto) {
-      console.error('Respuesta de Vertex AI sin texto:', JSON.stringify(datos));
-      res.status(500).json({ error: 'Vertex AI no devolvió una respuesta válida' });
+    if (!audioBase64) {
+      res.status(500).json({ error: 'Vertex AI no devolvió un audio válido' });
       return;
     }
 
-    res.status(200).json({ content: [{ text: texto }] });
+    const pcmBuffer = Buffer.from(audioBase64, 'base64');
+    const wavBuffer = agregarEncabezadoWav(pcmBuffer, 24000, 1, 16);
+
+    res.setHeader('Content-Type', 'audio/wav');
+    res.status(200).send(wavBuffer);
   } catch (error) {
-    console.error('Error en la función chat.js:', error);
+    console.error('Error en la función tts.js:', error);
     res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
   }
 };
+
+function agregarEncabezadoWav(datosPcm, sampleRate, numCanales, bitsPorMuestra) {
+  const bloqueAlineado = (numCanales * bitsPorMuestra) / 8;
+  const tasaBytes = sampleRate * bloqueAlineado;
+  const encabezado = Buffer.alloc(44);
+  encabezado.write('RIFF', 0);
+  encabezado.writeUInt32LE(36 + datosPcm.length, 4);
+  encabezado.write('WAVE', 8);
+  encabezado.write('fmt ', 12);
+  encabezado.writeUInt32LE(16, 16);
+  encabezado.writeUInt16LE(1, 20);
+  encabezado.writeUInt16LE(numCanales, 22);
+  encabezado.writeUInt32LE(sampleRate, 24);
+  encabezado.writeUInt32LE(tasaBytes, 28);
+  encabezado.writeUInt16LE(bloqueAlineado, 32);
+  encabezado.writeUInt16LE(bitsPorMuestra, 34);
+  encabezado.write('data', 36);
+  encabezado.writeUInt32LE(datosPcm.length, 40);
+  return Buffer.concat([encabezado, datosPcm]);
+}
