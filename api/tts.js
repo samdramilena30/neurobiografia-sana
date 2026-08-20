@@ -2,11 +2,10 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. El prompt está basado en un análisis técnico real
-// del "Audio 1" de referencia (voz de Asistente SANA): voz hablada natural,
-// tono medio-agudo con cuerpo cálido y resonancia pectoral, reflexiva,
-// maternal, empática, con entonación descendente al final de cada frase y
-// ritmo fluido/pausado/orgánico (NO susurrada, eso es para otro uso).
+// GOOGLE_TTS_CREDENTIALS. El prompt busca una voz natural con resonancia
+// pectoral profunda y plena (cuerpo y gravedad reales), reflexiva, maternal,
+// empática, con entonación descendente al final de cada frase y ritmo
+// fluido/pausado/orgánico (sin susurro).
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -49,8 +48,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English in a natural spoken voice, medium-high pitch with warm body and gentle chest resonance — reflective, maternal, empathetic, with a falling, settling intonation at the end of each phrase. Speak in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
-      : `Di lo siguiente en español con una voz hablada natural, de tono medio-agudo con cuerpo cálido y resonancia pectoral suave — reflexiva, maternal, empática, con una entonación descendente que se asienta al final de cada frase. Habla con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
+      ? `Say the following in English in a natural spoken voice, with a deep, full chest resonance giving it real body and gravity — reflective, maternal, empathetic, with a falling, settling intonation at the end of each phrase. Speak in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz hablada natural, con una resonancia pectoral profunda y plena que le da verdadero cuerpo y gravedad — reflexiva, maternal, empática, con una entonación descendente que se asienta al final de cada frase. Habla con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
 
     let credenciales;
     try {
