@@ -2,11 +2,11 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. El prompt se basa en un análisis técnico real de
-// la voz de referencia: registro medio-agudo con emisión aireada y
-// resonancia pectoral (no gravedad de tono), tonalidad maternal/empática,
-// entonación descendente al final de cada frase, y cadencia pausada con
-// respiraciones audibles entre frases.
+// GOOGLE_TTS_CREDENTIALS. El prompt está basado en un análisis técnico real
+// del "Audio 1" de referencia (voz de Asistente SANA): voz hablada natural,
+// tono medio-agudo con cuerpo cálido y resonancia pectoral, reflexiva,
+// maternal, empática, con entonación descendente al final de cada frase y
+// ritmo fluido/pausado/orgánico (NO susurrada, eso es para otro uso).
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -49,8 +49,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English with a soft, breathy, airy voice, warmed by gentle chest resonance rather than depth of pitch — maternal, empathetic, reflective, with a falling, settling intonation at the end of each phrase. Speak unhurriedly, with spacious pauses and audible tender breaths between phrases, as if guiding someone to release tension: "${textoFinal}"`
-      : `Di lo siguiente en español con una voz suave y aireada, casi susurrada, cálida por su resonancia pectoral más que por gravedad de tono — maternal, empática, reflexiva, con una entonación descendente que se asienta al final de cada frase. Habla sin prisa, con pausas amplias y respiraciones tiernas y audibles entre frases, como guiando a alguien a soltar tensión: "${textoFinal}"`;
+      ? `Say the following in English in a natural spoken voice, medium-high pitch with warm body and gentle chest resonance — reflective, maternal, empathetic, with a falling, settling intonation at the end of each phrase. Speak in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
+      : `Di lo siguiente en español con una voz hablada natural, de tono medio-agudo con cuerpo cálido y resonancia pectoral suave — reflexiva, maternal, empática, con una entonación descendente que se asienta al final de cada frase. Habla con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
 
     let credenciales;
     try {
