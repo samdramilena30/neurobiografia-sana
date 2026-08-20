@@ -2,10 +2,10 @@
 // Recibe el texto que "Habla conmigo" debe pronunciar en voz alta y llama a
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
-// GOOGLE_TTS_CREDENTIALS. Prompt que intensifica la dirección que dio 9/10
-// (garganta abierta, más caudal de aire/resonancia pectoral, mantener la
-// intención cálida hasta la última palabra) buscando el 10/10 con la voz
-// de referencia de SANA.
+// GOOGLE_TTS_CREDENTIALS. Prompt anclado en una imagen de edad/carácter
+// (mujer sabia y aterrizada de unos 55 años, no joven ni brillante) en vez
+// de términos técnicos de resonancia/garganta, que habían desviado el
+// resultado hacia efectos no deseados (recitado, neutro, admirado).
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -48,8 +48,8 @@ module.exports = async (req, res) => {
     const textoFinal = text.trim().slice(0, 8000);
 
     const prompt = idioma === 'en'
-      ? `Say the following in English in a natural spoken voice, with an open throat and generous chest resonance, letting the breath flow freely and richly through every word — deep, full-bodied, warm, reflective, maternal, empathetic, holding that same warm intention steady all the way through the last word of each phrase. Speak in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
-      : `Di lo siguiente en español con una voz hablada natural, con la garganta abierta y una resonancia pectoral generosa, dejando que el aliento fluya libre y con abundancia en cada palabra — profunda, de cuerpo pleno, cálida, reflexiva, maternal, empática, sosteniendo esa misma intención cálida hasta la última palabra de cada frase. Habla con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
+      ? `Say the following in English with the voice of a grounded, wise woman in her fifties — not young or bright, but mature, deep, and settled, carrying the weight of lived experience. Warm, reflective, maternal, empathetic, speaking in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
+      : `Di lo siguiente en español con la voz de una mujer sabia y aterrizada de unos 55 años — no joven ni brillante, sino madura, profunda y asentada, cargando el peso de la experiencia vivida. Cálida, reflexiva, maternal, empática, hablando con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
 
     let credenciales;
     try {
