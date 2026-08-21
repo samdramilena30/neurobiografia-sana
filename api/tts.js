@@ -3,8 +3,9 @@
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
 // GOOGLE_TTS_CREDENTIALS. Prompt confirmado en 9/10 de similitud con la voz
-// de referencia de SANA, combinado con languageCode: 'es-ES' (la
-// configuración de idioma original con la que se creó la voz de SANA).
+// de referencia de SANA (Audio 1) — el mejor resultado estable confirmado
+// tras probar varias variantes que se alejaron (nasal, ronca, es-ES, sin
+// instrucción de estilo).
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -50,8 +51,6 @@ module.exports = async (req, res) => {
       ? `Say the following in English in a natural spoken voice, with a deep, full chest resonance giving it real body and gravity, softened by a warm breath that lingers gently in every word — reflective, maternal, empathetic, with a falling, settling intonation at the end of each phrase. Speak in a fluid, organic, unhurried pace, close and guiding, like someone offering steady companionship: "${textoFinal}"`
       : `Di lo siguiente en español con una voz hablada natural, con una resonancia pectoral profunda y plena que le da verdadero cuerpo y gravedad, suavizada por un aliento cálido que se percibe con delicadeza en cada palabra — reflexiva, maternal, empática, con una entonación descendente que se asienta al final de cada frase. Habla con un ritmo fluido, pausado y orgánico, cercana y guiando, como alguien que ofrece compañía constante: "${textoFinal}"`;
 
-    const codigoIdioma = idioma === 'en' ? 'en-US' : 'es-ES';
-
     let credenciales;
     try {
       credenciales = JSON.parse(process.env.GOOGLE_TTS_CREDENTIALS);
@@ -81,7 +80,6 @@ module.exports = async (req, res) => {
           responseModalities: ['AUDIO'],
           temperature: 0.4,
           speechConfig: {
-            languageCode: codigoIdioma,
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
           }
         }
