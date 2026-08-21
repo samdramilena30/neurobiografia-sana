@@ -3,9 +3,7 @@
 // Gemini TTS a través de Vertex AI (gemini-2.5-flash-tts, GA, región
 // us-central1), usando la cuenta de servicio configurada en
 // GOOGLE_TTS_CREDENTIALS. Prompt confirmado en 9/10 de similitud con la voz
-// de referencia de SANA (Audio 1) — el mejor resultado estable confirmado
-// tras probar varias variantes que se alejaron (nasal, ronca, es-ES, sin
-// instrucción de estilo).
+// de referencia de SANA (Audio 1) — el mejor resultado estable confirmado.
 
 const { GoogleAuth } = require('google-auth-library');
 
