@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sana-cache-v41';
+const CACHE_NAME = 'sana-cache-v42';
 const ARCHIVOS = [
   './',
   './index.html',
@@ -28,6 +28,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Las rutas /api/ nunca deben servirse desde caché: siempre van directo
+  // a la red para evitar que una respuesta vieja (o el index.html) se
+  // devuelva como si fuera la respuesta real del servidor.
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((respuesta) => {
       return respuesta || fetch(event.request).catch(() => caches.match('./index.html'));
