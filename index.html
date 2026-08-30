@@ -2312,62 +2312,99 @@ function detenerVozManual() {
   document.getElementById('mic-estado').textContent = '🎙️ Habla · ✍️ Escribe';
 }
 
-// MICRÓFONO — Web Speech API
+// --- MICRÓFONO OPTIMIZADO (ACUMULACIÓN + CONTROL DE TIEMPO Y SILENCIO) ---
+let maxRecordingTimer = null;
+let silenceTimer = null;
+let grabacionActiva = false;
+
 function toggleMic() {
+  const micEstado = document.getElementById('mic-estado');
+  const chatInput = document.getElementById('habla-input');
+
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    document.getElementById('mic-estado').textContent = 'Tu navegador no soporta grabación de voz. Escribe tu mensaje.';
+    if (micEstado) micEstado.textContent = 'Tu navegador no soporta grabación de voz.';
     return;
   }
 
-  if (grabando) {
-    recognition.stop();
+  // Si ya está grabando, se detiene manualmente
+  if (grabacionActiva) {
+    detenerGrabacionMicrofono();
     return;
   }
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = 'es-CO';
-  recognition.continuous = true;
-  recognition.interimResults = true;
+  window.recognition = new SpeechRecognition();
 
-  recognition.onstart = () => {
-    grabando = true;
-    document.getElementById('btn-mic').style.background = 'rgba(200,50,50,0.3)';
-    document.getElementById('btn-mic').style.borderColor = '#cc3333';
-    document.getElementById('btn-mic').textContent = '⏹️';
-    document.getElementById('mic-estado').textContent = '🔴 Grabando... Habla con calma';
+  window.recognition.continuous = true;
+  window.recognition.interimResults = true;
+  window.recognition.lang = 'es-ES';
+
+  // Guardamos el texto previo en el input para no sobrescribirlo
+  const textoBase = chatInput ? chatInput.value : '';
+  let finalTranscript = '';
+
+  window.recognition.onstart = () => {
+    grabacionActiva = true;
+    if (micEstado) micEstado.textContent = '🔴 Grabando... Habla con calma';
+
+    // Puntos 2 y 3: Temporizador máximo de seguridad a 90 segundos
+    clearTimeout(maxRecordingTimer);
+    maxRecordingTimer = setTimeout(() => {
+      detenerGrabacionMicrofono();
+    }, 90000);
   };
 
-  recognition.onresult = (e) => {
-    let transcripcion = '';
-    for (let i = 0; i < e.results.length; i++) {
-      transcripcion += e.results[i][0].transcript;
+  window.recognition.onresult = (event) => {
+    let interimTranscript = '';
+
+    // Puntos 2 y 3: Temporizador de silencio ajustado a 5 segundos (5000 ms)
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => {
+      detenerGrabacionMicrofono();
+    }, 5000);
+
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
     }
-    document.getElementById('habla-input').value = transcripcion;
-  };
 
-  recognition.onend = () => {
-    grabando = false;
-    document.getElementById('btn-mic').style.background = 'rgba(90,138,60,0.15)';
-    document.getElementById('btn-mic').style.borderColor = '#5a8a3c';
-    document.getElementById('btn-mic').textContent = '🎙️';
-    const texto = document.getElementById('habla-input').value.trim();
-    if (texto) {
-      document.getElementById('mic-estado').textContent = '✓ Transcrito — enviando...';
-      setTimeout(() => enviarMensaje(), 600);
-    } else {
-      document.getElementById('mic-estado').textContent = '🎙️ Habla · ✍️ Escribe';
+    if (chatInput) {
+      const espacio = (textoBase && !textoBase.endsWith(' ')) ? ' ' : '';
+      chatInput.value = textoBase + espacio + finalTranscript + interimTranscript;
     }
   };
 
-  recognition.onerror = () => {
-    grabando = false;
-    document.getElementById('btn-mic').textContent = '🎙️';
-    document.getElementById('mic-estado').textContent = 'No se pudo acceder al micrófono. Escribe tu mensaje.';
+  window.recognition.onerror = (event) => {
+    console.error('Error en el micrófono:', event.error);
+    detenerGrabacionMicrofono();
   };
 
-  recognition.start();
+  window.recognition.onend = () => {
+    grabacionActiva = false;
+    clearTimeout(maxRecordingTimer);
+    clearTimeout(silenceTimer);
+    if (micEstado) micEstado.textContent = '🎙️ Habla · ✍️ Escribe';
+  };
+
+  window.recognition.start();
 }
+
+function detenerGrabacionMicrofono() {
+  grabacionActiva = false;
+  clearTimeout(maxRecordingTimer);
+  clearTimeout(silenceTimer);
+  if (window.recognition) {
+    try {
+      window.recognition.stop();
+    } catch (e) {
+      console.log('El reconocedor ya estaba detenido');
+    }
+  }
+}
+
 
 // Tecla Enter para enviar
 document.addEventListener('DOMContentLoaded', () => {
