@@ -36,6 +36,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // El documento principal (index.html / la ruta raíz) siempre se pide
+  // primero a la red, para que los deploys nuevos se vean de inmediato.
+  // Si no hay conexión, se cae de respaldo a la copia en caché.
+  const esDocumentoPrincipal =
+    event.request.mode === 'navigate' ||
+    event.request.url.endsWith('/') ||
+    event.request.url.endsWith('/index.html');
+
+  if (esDocumentoPrincipal) {
+    event.respondWith(
+      fetch(event.request)
+        .then((respuesta) => {
+          const copia = respuesta.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copia));
+          return respuesta;
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((respuesta) => {
       return respuesta || fetch(event.request).catch(() => caches.match('./index.html'));
