@@ -2,13 +2,13 @@
 // Recibe los mensajes del chat "Habla conmigo" y llama a Gemini a través de
 // Vertex AI (gemini-2.5-flash, GA, región us-central1), usando la misma
 // cuenta de servicio empresarial que ya usa tts.js (GOOGLE_TTS_CREDENTIALS).
+// Esto reemplaza el uso anterior de la API pública de AI Studio, cuya cuota
+// gratuita se agotaba con facilidad durante las pruebas.
 //
-// IMPORTANTE: esta función usa el endpoint de STREAMING de Vertex AI
-// (streamGenerateContent, con ?alt=sse) en vez de esperar la respuesta
-// completa. Esto permite que Index.html muestre el texto de SANA
-// apareciendo progresivamente, en vez de que la persona espere varios
-// segundos en blanco antes de ver algo. El texto que Google genera tarda
-// lo mismo por dentro — lo que cambia es que ya no se espera todo junto.
+// NOTA: se intentó una versión con streaming (respuesta progresiva) pero
+// se revirtió temporalmente por un problema en producción — el texto no
+// llegaba. Queda pendiente investigar con los logs de Vercel antes de
+// volver a intentarlo.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -95,10 +95,7 @@ module.exports = async (req, res) => {
 
     const accessToken = await obtenerTokenDeAcceso(credenciales);
 
-    // ?alt=sse le pide a Vertex AI que entregue la respuesta como
-    // "Server-Sent Events" — un flujo de fragmentos de texto a medida que
-    // el modelo los genera, en vez de un solo bloque al final.
-    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:streamGenerateContent?alt=sse`;
+    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:generateContent`;
 
     const respuestaVertex = await fetch(url, {
       method: 'POST',
@@ -109,44 +106,35 @@ module.exports = async (req, res) => {
       body: JSON.stringify(cuerpoSolicitud)
     });
 
+    const datos = await respuestaVertex.json();
+
     if (!respuestaVertex.ok) {
-      // Si Vertex AI rechaza la solicitud, la respuesta no viene en
-      // formato de streaming — es un JSON de error normal.
-      let datosError = {};
-      try { datosError = await respuestaVertex.json(); } catch (e) {}
-      console.error('Error de Vertex AI (chat):', JSON.stringify(datosError));
+      console.error('Error de Vertex AI (chat):', JSON.stringify(datos));
       if (respuestaVertex.status === 401 || respuestaVertex.status === 403) {
         tokenCacheado = null;
         tokenVenceEn = 0;
       }
-      res.status(respuestaVertex.status).json({ error: (datosError.error && datosError.error.message) || 'Error al hablar con Vertex AI' });
+      res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al hablar con Vertex AI' });
       return;
     }
 
-    // A partir de aquí, reenviamos el flujo de Vertex AI hacia Index.html
-    // tal como va llegando, fragmento por fragmento.
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    if (res.flushHeaders) res.flushHeaders();
+    const texto =
+      datos.candidates &&
+      datos.candidates[0] &&
+      datos.candidates[0].content &&
+      datos.candidates[0].content.parts &&
+      datos.candidates[0].content.parts[0] &&
+      datos.candidates[0].content.parts[0].text;
 
-    const lector = respuestaVertex.body.getReader();
-    try {
-      while (true) {
-        const { done, value } = await lector.read();
-        if (done) break;
-        res.write(value);
-        if (res.flush) res.flush();
-      }
-    } finally {
-      res.end();
+    if (!texto) {
+      console.error('Respuesta de Vertex AI sin texto:', JSON.stringify(datos));
+      res.status(500).json({ error: 'Vertex AI no devolvió una respuesta válida' });
+      return;
     }
+
+    res.status(200).json({ content: [{ text: texto }] });
   } catch (error) {
     console.error('Error en la función chat.js:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
-    } else {
-      res.end();
-    }
+    res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
   }
 };
