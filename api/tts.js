@@ -11,6 +11,33 @@ const PROYECTO = 'gen-lang-client-0888965075';
 const REGION = 'us-central1';
 const MODELO = 'gemini-2.5-flash-tts';
 
+// Caché del token de acceso a Google Cloud. Vercel a veces reutiliza la
+// misma instancia de la función entre invocaciones seguidas; cuando eso
+// pasa, esta variable sigue viva y nos ahorramos pedir un token nuevo
+// cada vez (ese intercambio con Google agrega demora en cada solicitud
+// de audio). El token normalmente dura 1 hora; lo renovamos un poco antes
+// de que venza, por seguridad.
+let tokenCacheado = null;
+let tokenVenceEn = 0;
+
+async function obtenerTokenDeAcceso(credenciales) {
+  const ahora = Date.now();
+  if (tokenCacheado && ahora < tokenVenceEn) {
+    return tokenCacheado;
+  }
+  const auth = new GoogleAuth({
+    credentials: credenciales,
+    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+  });
+  const cliente = await auth.getClient();
+  const token = await cliente.getAccessToken();
+  tokenCacheado = token.token;
+  // Los tokens de Google suelen durar 1 hora (3600s); renovamos 5 minutos
+  // antes de que venza, para no arriesgarnos a usar uno ya expirado.
+  tokenVenceEn = ahora + (55 * 60 * 1000);
+  return tokenCacheado;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -57,19 +84,14 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const auth = new GoogleAuth({
-      credentials: credenciales,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform']
-    });
-    const cliente = await auth.getClient();
-    const token = await cliente.getAccessToken();
+    const accessToken = await obtenerTokenDeAcceso(credenciales);
 
     const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:generateContent`;
 
     const respuestaVertex = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token.token}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -88,6 +110,12 @@ module.exports = async (req, res) => {
 
     if (!respuestaVertex.ok) {
       console.error('Error de Vertex AI:', JSON.stringify(datos));
+      // Si el rechazo fue por autenticación, invalidamos el token cacheado
+      // para no seguir usando uno inválido en las próximas solicitudes.
+      if (respuestaVertex.status === 401 || respuestaVertex.status === 403) {
+        tokenCacheado = null;
+        tokenVenceEn = 0;
+      }
       res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al generar la voz con Vertex AI' });
       return;
     }
