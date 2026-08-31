@@ -2,13 +2,11 @@
 // Recibe los mensajes del chat "Habla conmigo" y llama a Gemini a través de
 // Vertex AI (gemini-2.5-flash, GA, región us-central1), usando la misma
 // cuenta de servicio empresarial que ya usa tts.js (GOOGLE_TTS_CREDENTIALS).
-// Esto reemplaza el uso anterior de la API pública de AI Studio, cuya cuota
-// gratuita se agotaba con facilidad durante las pruebas.
 //
-// NOTA: se intentó una versión con streaming (respuesta progresiva) pero
-// se revirtió temporalmente por un problema en producción — el texto no
-// llegaba. Queda pendiente investigar con los logs de Vercel antes de
-// volver a intentarlo.
+// Usa el endpoint de STREAMING de Vertex AI (streamGenerateContent, con
+// ?alt=sse) en vez de esperar la respuesta completa, para que el texto de
+// SANA aparezca progresivamente en vez de que la persona espere varios
+// segundos en blanco.
 
 const { GoogleAuth } = require('google-auth-library');
 
@@ -16,9 +14,6 @@ const PROYECTO = 'gen-lang-client-0888965075';
 const REGION = 'us-central1';
 const MODELO = 'gemini-2.5-flash';
 
-// Caché del token de acceso a Google Cloud entre invocaciones de la misma
-// instancia de la función (igual que en tts.js) — evita pedir un token
-// nuevo en cada mensaje cuando no es necesario.
 let tokenCacheado = null;
 let tokenVenceEn = 0;
 
@@ -95,7 +90,7 @@ module.exports = async (req, res) => {
 
     const accessToken = await obtenerTokenDeAcceso(credenciales);
 
-    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:generateContent`;
+    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:streamGenerateContent?alt=sse`;
 
     const respuestaVertex = await fetch(url, {
       method: 'POST',
@@ -106,35 +101,40 @@ module.exports = async (req, res) => {
       body: JSON.stringify(cuerpoSolicitud)
     });
 
-    const datos = await respuestaVertex.json();
-
     if (!respuestaVertex.ok) {
-      console.error('Error de Vertex AI (chat):', JSON.stringify(datos));
+      let datosError = {};
+      try { datosError = await respuestaVertex.json(); } catch (e) {}
+      console.error('Error de Vertex AI (chat):', JSON.stringify(datosError));
       if (respuestaVertex.status === 401 || respuestaVertex.status === 403) {
         tokenCacheado = null;
         tokenVenceEn = 0;
       }
-      res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al hablar con Vertex AI' });
+      res.status(respuestaVertex.status).json({ error: (datosError.error && datosError.error.message) || 'Error al hablar con Vertex AI' });
       return;
     }
 
-    const texto =
-      datos.candidates &&
-      datos.candidates[0] &&
-      datos.candidates[0].content &&
-      datos.candidates[0].content.parts &&
-      datos.candidates[0].content.parts[0] &&
-      datos.candidates[0].content.parts[0].text;
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    if (res.flushHeaders) res.flushHeaders();
 
-    if (!texto) {
-      console.error('Respuesta de Vertex AI sin texto:', JSON.stringify(datos));
-      res.status(500).json({ error: 'Vertex AI no devolvió una respuesta válida' });
-      return;
+    const lector = respuestaVertex.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await lector.read();
+        if (done) break;
+        res.write(value);
+        if (res.flush) res.flush();
+      }
+    } finally {
+      res.end();
     }
-
-    res.status(200).json({ content: [{ text: texto }] });
   } catch (error) {
     console.error('Error en la función chat.js:', error);
-    res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
+    } else {
+      res.end();
+    }
   }
 };
