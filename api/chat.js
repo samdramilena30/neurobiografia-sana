@@ -2,14 +2,41 @@
 // Recibe los mensajes del chat "Habla conmigo" y llama a Gemini a través de
 // Vertex AI (gemini-2.5-flash, GA, región us-central1), usando la misma
 // cuenta de servicio empresarial que ya usa tts.js (GOOGLE_TTS_CREDENTIALS).
-// Esto reemplaza el uso anterior de la API pública de AI Studio, cuya cuota
-// gratuita se agotaba con facilidad durante las pruebas.
+//
+// IMPORTANTE: esta función usa el endpoint de STREAMING de Vertex AI
+// (streamGenerateContent, con ?alt=sse) en vez de esperar la respuesta
+// completa. Esto permite que Index.html muestre el texto de SANA
+// apareciendo progresivamente, en vez de que la persona espere varios
+// segundos en blanco antes de ver algo. El texto que Google genera tarda
+// lo mismo por dentro — lo que cambia es que ya no se espera todo junto.
 
 const { GoogleAuth } = require('google-auth-library');
 
 const PROYECTO = 'gen-lang-client-0888965075';
 const REGION = 'us-central1';
 const MODELO = 'gemini-2.5-flash';
+
+// Caché del token de acceso a Google Cloud entre invocaciones de la misma
+// instancia de la función (igual que en tts.js) — evita pedir un token
+// nuevo en cada mensaje cuando no es necesario.
+let tokenCacheado = null;
+let tokenVenceEn = 0;
+
+async function obtenerTokenDeAcceso(credenciales) {
+  const ahora = Date.now();
+  if (tokenCacheado && ahora < tokenVenceEn) {
+    return tokenCacheado;
+  }
+  const auth = new GoogleAuth({
+    credentials: credenciales,
+    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+  });
+  const cliente = await auth.getClient();
+  const token = await cliente.getAccessToken();
+  tokenCacheado = token.token;
+  tokenVenceEn = ahora + (55 * 60 * 1000);
+  return tokenCacheado;
+}
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -66,49 +93,60 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const auth = new GoogleAuth({
-      credentials: credenciales,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform']
-    });
-    const cliente = await auth.getClient();
-    const token = await cliente.getAccessToken();
+    const accessToken = await obtenerTokenDeAcceso(credenciales);
 
-    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:generateContent`;
+    // ?alt=sse le pide a Vertex AI que entregue la respuesta como
+    // "Server-Sent Events" — un flujo de fragmentos de texto a medida que
+    // el modelo los genera, en vez de un solo bloque al final.
+    const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROYECTO}/locations/${REGION}/publishers/google/models/${MODELO}:streamGenerateContent?alt=sse`;
 
     const respuestaVertex = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token.token}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(cuerpoSolicitud)
     });
 
-    const datos = await respuestaVertex.json();
-
     if (!respuestaVertex.ok) {
-      console.error('Error de Vertex AI (chat):', JSON.stringify(datos));
-      res.status(respuestaVertex.status).json({ error: (datos.error && datos.error.message) || 'Error al hablar con Vertex AI' });
+      // Si Vertex AI rechaza la solicitud, la respuesta no viene en
+      // formato de streaming — es un JSON de error normal.
+      let datosError = {};
+      try { datosError = await respuestaVertex.json(); } catch (e) {}
+      console.error('Error de Vertex AI (chat):', JSON.stringify(datosError));
+      if (respuestaVertex.status === 401 || respuestaVertex.status === 403) {
+        tokenCacheado = null;
+        tokenVenceEn = 0;
+      }
+      res.status(respuestaVertex.status).json({ error: (datosError.error && datosError.error.message) || 'Error al hablar con Vertex AI' });
       return;
     }
 
-    const texto =
-      datos.candidates &&
-      datos.candidates[0] &&
-      datos.candidates[0].content &&
-      datos.candidates[0].content.parts &&
-      datos.candidates[0].content.parts[0] &&
-      datos.candidates[0].content.parts[0].text;
+    // A partir de aquí, reenviamos el flujo de Vertex AI hacia Index.html
+    // tal como va llegando, fragmento por fragmento.
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    if (res.flushHeaders) res.flushHeaders();
 
-    if (!texto) {
-      console.error('Respuesta de Vertex AI sin texto:', JSON.stringify(datos));
-      res.status(500).json({ error: 'Vertex AI no devolvió una respuesta válida' });
-      return;
+    const lector = respuestaVertex.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await lector.read();
+        if (done) break;
+        res.write(value);
+        if (res.flush) res.flush();
+      }
+    } finally {
+      res.end();
     }
-
-    res.status(200).json({ content: [{ text: texto }] });
   } catch (error) {
     console.error('Error en la función chat.js:', error);
-    res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error interno del servidor: ' + (error && error.message) });
+    } else {
+      res.end();
+    }
   }
 };
